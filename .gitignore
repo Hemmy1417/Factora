@@ -1,0 +1,10 @@
+node_modules/
+.next/
+__pycache__/
+.mutwork/
+.pytest_cache/
+.env.local
+.env
+.data/
+artifacts/
+tsconfig.tsbuildinfo
