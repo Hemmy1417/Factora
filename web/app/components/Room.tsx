@@ -22,7 +22,7 @@ import { MONITORING_LABEL } from "@/lib/taxonomy";
 import { AssessmentSheet } from "./AssessmentSheet";
 import { EvidenceGraph } from "./EvidenceGraph";
 import { EvidenceEditor, blank, toItemsJson, type DraftItem } from "./EvidenceEditor";
-import { MonoRow, StatusStamp } from "./bits";
+import { InstrumentGlyph, MonoRow, StatusStamp } from "./bits";
 import { TxFlow } from "./TxFlow";
 
 const REFRESH_MS = 45_000;
@@ -143,16 +143,23 @@ export function Room({ id }: { id: string }) {
 
   return (
     <div>
-      {/* ── the instrument hero ───────────────────────────────────────── */}
+      {/* ── the instrument hero: a mark and a name, not identifiers ───── */}
       <div className="hero-card">
-        <div className="chip-row">
-          <span className="v-mono" style={{ color: "var(--lime)" }}>{inv.invoice_id}</span>
-          <span className="v-mono" style={{ color: "var(--lichen)" }}>{inv.reference}</span>
+        <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+          <InstrumentGlyph id={inv.invoice_id} size={52} />
+          <div style={{ minWidth: 0 }}>
+            <div className="hero-amount" style={{ fontSize: "clamp(28px, 3.6vw, 44px)" }}>
+              {formatGen(inv.amount_atto)} GEN receivable
+            </div>
+            <div className="v-mono" style={{ color: "var(--lichen)", fontSize: 13, marginTop: 4 }}>
+              {inv.reference} · due {formatStamp(inv.due_epoch).slice(0, 10)} ·
+              seller {truncAddr(inv.seller)} · buyer {truncAddr(inv.buyer)}
+            </div>
+          </div>
           <span style={{ marginLeft: "auto" }}>
             <StatusStamp status={inv.status} />
           </span>
         </div>
-        <div className="hero-amount">{formatGen(inv.amount_atto)} GEN</div>
         <div className="chip-row">
           {inv.buyer_ack_epoch ? (
             <span className="stamp tone-good">countersigned on-chain</span>
@@ -167,24 +174,6 @@ export function Room({ id }: { id: string }) {
               monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
             </span>
           ) : null}
-          <span className="stamp tone-neutral">due {formatStamp(inv.due_epoch).slice(0, 10)}</span>
-        </div>
-        <div className="tile-strip" style={{ gap: 12 }}>
-          <div className="sheet-recessed" style={{ padding: 16 }}>
-            <div className="v-label">Seller</div>
-            <div className="v-mono">{truncAddr(inv.seller)}</div>
-          </div>
-          <div className="sheet-recessed" style={{ padding: 16 }}>
-            <div className="v-label">Buyer wallet</div>
-            <div className="v-mono">{truncAddr(inv.buyer)}</div>
-          </div>
-          <div className="sheet-recessed" style={{ padding: 16 }}>
-            <div className="v-label">Evidence</div>
-            <div className="v-mono">
-              v{inv.evidence_version || "—"}
-              {inv.evidence_root ? ` · ${inv.evidence_root.slice(0, 10)}…` : ""}
-            </div>
-          </div>
         </div>
         {inv.buyer_dispute_text ? (
           <p className="note bad" style={{ margin: 0 }}>
@@ -193,60 +182,40 @@ export function Room({ id }: { id: string }) {
         ) : null}
       </div>
 
-      {/* ── actions ───────────────────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">01</span>
-        <h2>Actions</h2>
-      </div>
-      {!me ? (
-        <p className="v-body">Connect a wallet to act on this receivable.</p>
-      ) : (
-        <Actions
-          inv={inv} now={now} me={me}
-          isSeller={isSeller} isBuyer={isBuyer}
-          busy={busy} write={write} claimable={claimable}
-        />
-      )}
-      <div style={{ marginTop: 16 }}>
-        <TxFlow p={tx} />
-      </div>
+      <div className="room-grid">
+        {/* ── main column: verdict, evidence, record ─────────────────── */}
+        <div className="room-main">
+          <div className="section-head" style={{ marginTop: 0 }}>
+            <span className="section-no">01</span>
+            <h2>The verdict</h2>
+            {inv.status === "PENDING_FINALITY" ? (
+              <span className="aside v-label">
+                {inv.pending_until_epoch > now
+                  ? `window closes in ${formatSpan(inv.pending_until_epoch - now)}`
+                  : "window closed — awaiting promotion"}
+              </span>
+            ) : null}
+          </div>
+          {assessment ? (
+            <AssessmentSheet a={assessment} invoice={inv} />
+          ) : inv.pending_version || inv.assessed_version ? (
+            <p className="v-body">Reading the verdict from the chain…</p>
+          ) : (
+            <p className="v-body">
+              No assessment yet. The seller commits evidence, then puts the
+              record to the panel.
+            </p>
+          )}
 
-      {/* ── the verdict ───────────────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">02</span>
-        <h2>The verdict</h2>
-        {inv.status === "PENDING_FINALITY" ? (
-          <span className="aside v-label">
-            window {inv.pending_until_epoch > now
-              ? `closes in ${formatSpan(inv.pending_until_epoch - now)}`
-              : "closed — awaiting promotion"}
-          </span>
-        ) : null}
-      </div>
-      {assessment ? (
-        <AssessmentSheet a={assessment} invoice={inv} />
-      ) : inv.pending_version || inv.assessed_version ? (
-        <p className="v-body">Reading the verdict from the chain…</p>
-      ) : (
-        <p className="v-body">
-          No assessment yet. The seller commits evidence, then puts the
-          record to the panel.
-        </p>
-      )}
-
-      {/* ── the evidence ──────────────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">03</span>
-        <h2>The evidence</h2>
-        <span className="aside v-label">
-          version {inv.evidence_version || "—"} · root{" "}
-          {inv.evidence_root ? inv.evidence_root.slice(0, 12) + "…" : "—"}
-        </span>
-      </div>
-      <EvidenceGraph manifest={manifest} assessment={assessment} />
+          <div className="section-head">
+            <span className="section-no">02</span>
+            <h2>The evidence</h2>
+            <span className="aside v-label">version {inv.evidence_version || "—"}</span>
+          </div>
+          <EvidenceGraph manifest={manifest} assessment={assessment} />
 
       {/* ── position, record & history — folded ───────────────────────── */}
-      <details style={{ marginTop: 72 }}>
+      <details style={{ marginTop: 56 }}>
         <summary className="v-label" style={{ cursor: "pointer" }}>
           Position, record &amp; history
         </summary>
@@ -322,6 +291,27 @@ export function Room({ id }: { id: string }) {
       </div>
         </div>
       </details>
+        </div>
+
+        {/* ── the rail: what this wallet can do, always in view ────────── */}
+        <aside className="room-rail">
+          <span className="v-label">Actions</span>
+          {!me ? (
+            <div className="sheet" style={{ padding: 20 }}>
+              <p className="v-body" style={{ margin: 0, fontSize: 13.5 }}>
+                Connect a wallet to act on this receivable.
+              </p>
+            </div>
+          ) : (
+            <Actions
+              inv={inv} now={now} me={me}
+              isSeller={isSeller} isBuyer={isBuyer}
+              busy={busy} write={write} claimable={claimable}
+            />
+          )}
+          <TxFlow p={tx} />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -630,7 +620,7 @@ function Actions({
       </p>
     );
   }
-  return <div className="grid-2">{cards}</div>;
+  return <div className="stack" style={{ gap: 12 }}>{cards}</div>;
 }
 
 function ActionCard({
@@ -642,12 +632,11 @@ function ActionCard({
   quiet?: boolean;
 }) {
   return (
-    <div className="sheet" style={quiet ? { background: "var(--paper)" } : undefined}>
-      <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontSize: 18, }}>
-          {title}
-        </div>
-        <p className="v-body" style={{ margin: 0, fontSize: 13.5 }}>{body}</p>
+    <div className="sheet"
+      style={{ padding: 20, ...(quiet ? { background: "var(--paper)" } : {}) }}>
+      <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ fontSize: 15.5, fontWeight: 600 }}>{title}</div>
+        <p className="v-body" style={{ margin: 0, fontSize: 13 }}>{body}</p>
         {children}
       </div>
     </div>

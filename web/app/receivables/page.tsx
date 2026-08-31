@@ -9,7 +9,7 @@ import type { Invoice } from "@/lib/types";
 import { formatGen, formatStamp } from "@/lib/config";
 import { useWallet } from "@/lib/wallet";
 import { sameAddress } from "@/lib/chain";
-import { StatusStamp } from "../components/bits";
+import { InstrumentGlyph, StatusStamp } from "../components/bits";
 
 const PAGE = 12;
 
@@ -29,12 +29,16 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
         return (
           <Link key={v.invoice_id} href={`/receivables/${v.invoice_id}`}
             className="row-card">
-            <div className="stack" style={{ gap: 8 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
+              <InstrumentGlyph id={v.invoice_id} size={40} />
+              <div className="stack" style={{ gap: 8, minWidth: 0 }}>
               <div style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
-                <span className="v-mono" style={{ color: "var(--lime)" }}>
-                  {v.invoice_id}
+                <span style={{ fontSize: 17, fontWeight: 600 }}>
+                  {formatGen(v.amount_atto)} GEN
                 </span>
-                <span style={{ fontSize: 17 }}>{v.reference}</span>
+                <span className="v-mono" style={{ color: "var(--lichen)", fontSize: 12 }}>
+                  {v.reference}
+                </span>
               </div>
               <div className="chip-row">
                 <StatusStamp status={v.status} />
@@ -46,11 +50,11 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
                   <span className="stamp tone-bad">disputed</span>
                 ) : null}
               </div>
+              </div>
             </div>
             <div className="stack" style={{ gap: 4, justifyItems: "end" }}>
-              <span className="rc-figure">{formatGen(v.amount_atto)} GEN</span>
               <span className="v-mono" style={{ color: "var(--lichen)", fontSize: 12 }}>
-                {formatStamp(v.created_epoch).slice(0, 10)}
+                due {formatStamp(v.due_epoch).slice(0, 10)}
               </span>
             </div>
           </Link>

@@ -731,3 +731,34 @@ code, .code {
   .row-card { grid-template-columns: 1fr; }
   .row-card .rc-figure { text-align: left; }
 }
+
+/* ── the room, Base-anatomy: main column + sticky action rail ── */
+.room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
+  align-items: start;
+  margin-top: 28px;
+}
+.room-main { grid-column: 1; grid-row: 1; min-width: 0; }
+.room-rail {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 1000px) {
+  .room-grid { grid-template-columns: 1fr; }
+  .room-main { grid-column: 1; grid-row: auto; }
+  .room-rail { grid-column: 1; grid-row: auto; position: static; }
+}
+.glyph-seal {
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  flex: none;
+}

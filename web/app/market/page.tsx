@@ -9,6 +9,7 @@ import { getInvoices, getStats } from "@/lib/read";
 import type { Invoice, Stats } from "@/lib/types";
 import { formatBps, formatGen, formatSpan } from "@/lib/config";
 import { RISK_LABEL } from "@/lib/taxonomy";
+import { InstrumentGlyph } from "../components/bits";
 
 export default function MarketPage() {
   const [open, setOpen] = useState<Invoice[]>([]);
@@ -71,9 +72,7 @@ export default function MarketPage() {
               <Link key={v.invoice_id} href={`/receivables/${v.invoice_id}`}
                 className="action-card" style={{ textDecoration: "none", gap: 18 }}>
                 <div className="chip-row">
-                  <span className="v-mono" style={{ color: "var(--lime)" }}>
-                    {v.invoice_id}
-                  </span>
+                  <InstrumentGlyph id={v.invoice_id} size={32} />
                   <span className="stamp tone-neutral" style={{ marginLeft: "auto" }}>
                     {RISK_LABEL[v.risk] ?? v.risk}
                   </span>

@@ -40,3 +40,31 @@ export function Problem({ text }: { text: string }) {
   if (!text) return null;
   return <p className="note bad">{text}</p>;
 }
+
+/**
+ * The instrument's seal — a deterministic pastel stamp derived from its id,
+ * numbered like a stamping machine. Identity reads as a mark, not a hash;
+ * the raw identifiers live in the record fold where copy buttons make them
+ * useful instead of decorative.
+ */
+export function InstrumentGlyph({ id, size = 44 }: { id: string; size?: number }) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+  const n = id.replace(/^\D+0*/, "") || "?";
+  return (
+    <span
+      className="glyph-seal"
+      aria-hidden
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * (n.length > 2 ? 0.3 : 0.38),
+        background: `hsl(${h} 60% 82%)`,
+        color: `hsl(${h} 55% 24%)`,
+        border: `1.5px dashed hsl(${h} 45% 45%)`,
+      }}
+    >
+      {n}
+    </span>
+  );
+}
