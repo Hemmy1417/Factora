@@ -752,7 +752,9 @@ code, .code {
 @media (max-width: 1000px) {
   .room-grid { grid-template-columns: 1fr; }
   .room-main { grid-column: 1; grid-row: auto; }
-  .room-rail { grid-column: 1; grid-row: auto; position: static; }
+  /* On a phone the verbs come first: the rail stacks above the story. */
+  .room-rail { grid-column: 1; grid-row: auto; position: static; order: -1; }
+  .room-main { order: 0; }
 }
 .glyph-seal {
   border-radius: 14px;
