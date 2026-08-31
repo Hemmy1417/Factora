@@ -762,3 +762,19 @@ code, .code {
   font-weight: 600;
   flex: none;
 }
+
+/* ── the marketplace's empty specimen slot ── */
+.ghost-slot {
+  border: 1.5px dashed var(--line-dark);
+  border-radius: 16px;
+  padding: 28px;
+  display: grid;
+  gap: 16px;
+}
+.ghost-bar {
+  display: inline-block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--line-dark);
+  opacity: 0.8;
+}
