@@ -85,48 +85,55 @@ export default function MarketPage() {
             const advance = BigInt(v.advance_atto);
             return (
               <Link key={v.invoice_id} href={`/receivables/${v.invoice_id}`}
-                className="sheet" style={{ textDecoration: "none", display: "grid", gap: 10 }}>
-                <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                className="action-card" style={{ textDecoration: "none", gap: 18 }}>
+                <div className="chip-row">
                   <span className="v-mono" style={{ color: "var(--lime)" }}>
                     {v.invoice_id}
-                  </span>
-                  <span className="v-figure" style={{ fontSize: 24 }}>
-                    {formatGen(v.amount_atto)} GEN
                   </span>
                   <span className="stamp tone-neutral" style={{ marginLeft: "auto" }}>
                     {RISK_LABEL[v.risk] ?? v.risk}
                   </span>
+                  <span className={`stamp ${v.buyer_ack_epoch ? "tone-good" : "tone-neutral"}`}>
+                    {v.buyer_ack_epoch ? "countersigned" : "declared only"}
+                  </span>
                 </div>
-                <dl className="defs">
-                  <div className="def-row">
-                    <dt>Advance to deposit</dt>
-                    <dd className="v-figure">
-                      {formatGen(advance)} GEN ({formatBps(v.advance_rate_bps)})
-                    </dd>
+                <div>
+                  <div className="hero-amount" style={{ fontSize: "clamp(30px, 3.4vw, 44px)" }}>
+                    {formatGen(v.amount_atto)} GEN
                   </div>
-                  <div className="def-row">
-                    <dt>Factoring fee on repayment</dt>
-                    <dd className="v-figure">{formatBps(v.fee_bps)}</dd>
+                  <div className="sub" style={{ color: "var(--lichen)", fontSize: 13, marginTop: 4 }}>
+                    receivable · due in {formatSpan(v.due_epoch - now)}
                   </div>
-                  <div className="def-row">
-                    <dt>Due</dt>
-                    <dd>{formatSpan(v.due_epoch - now)} from now</dd>
+                </div>
+                <div className="tile-strip" style={{ gap: 10 }}>
+                  <div className="sheet-recessed" style={{ padding: 14 }}>
+                    <div className="v-label">Deposit</div>
+                    <div className="v-figure" style={{ fontSize: 18 }}>
+                      {formatGen(advance)} GEN
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--lichen)" }}>
+                      {formatBps(v.advance_rate_bps)} advance
+                    </div>
                   </div>
-                  <div className="def-row">
-                    <dt>Funding window</dt>
-                    <dd>{formatSpan(v.funding_deadline_epoch - now)} left</dd>
+                  <div className="sheet-recessed" style={{ padding: 14 }}>
+                    <div className="v-label">Your return</div>
+                    <div className="v-figure" style={{ fontSize: 18 }}>
+                      {formatBps(v.fee_bps)} fee
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--lichen)" }}>
+                      on repayment
+                    </div>
                   </div>
-                  <div className="def-row">
-                    <dt>Obligation</dt>
-                    <dd>{v.buyer_ack_epoch ? "countersigned by the buyer" : "declared only (advance capped)"}</dd>
+                  <div className="sheet-recessed" style={{ padding: 14 }}>
+                    <div className="v-label">Score</div>
+                    <div className="v-figure" style={{ fontSize: 18 }}>{v.score}</div>
+                    <div style={{ fontSize: 12, color: "var(--lichen)" }}>
+                      window {formatSpan(v.funding_deadline_epoch - now)} left
+                    </div>
                   </div>
-                  <div className="def-row">
-                    <dt>Score</dt>
-                    <dd className="v-figure">{v.score} / 100</dd>
-                  </div>
-                </dl>
-                <span className="v-label" style={{ color: "var(--lime)" }}>
-                  Open the room → inspect the evidence graph
+                </div>
+                <span className="btn" style={{ textAlign: "center" }}>
+                  Inspect the evidence, then fund
                 </span>
               </Link>
             );

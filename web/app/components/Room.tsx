@@ -136,48 +136,48 @@ export function Room({ id }: { id: string }) {
 
   return (
     <div>
-      {/* ── the instrument header ─────────────────────────────────────── */}
-      <div className="sheet" style={{ display: "grid", gap: 14 }}>
-        <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" }}>
+      {/* ── the instrument hero ───────────────────────────────────────── */}
+      <div className="hero-card">
+        <div className="chip-row">
           <span className="v-mono" style={{ color: "var(--lime)" }}>{inv.invoice_id}</span>
-          <h1 className="v-display" style={{ fontSize: 30 }}>
-            {formatGen(inv.amount_atto)} GEN receivable
-          </h1>
+          <span className="v-mono" style={{ color: "var(--lichen)" }}>{inv.reference}</span>
           <span style={{ marginLeft: "auto" }}>
-            <StatusStamp status={inv.status} tilted />
+            <StatusStamp status={inv.status} />
           </span>
         </div>
-        <div className="grid-3">
-          <div>
+        <div className="hero-amount">{formatGen(inv.amount_atto)} GEN</div>
+        <div className="chip-row">
+          {inv.buyer_ack_epoch ? (
+            <span className="stamp tone-good">countersigned on-chain</span>
+          ) : (
+            <span className="stamp tone-neutral">not countersigned</span>
+          )}
+          {inv.buyer_dispute_epoch ? (
+            <span className="stamp tone-bad">buyer dispute open</span>
+          ) : null}
+          {(inv.status === "FUNDED" || inv.status === "REPAID") && inv.monitoring !== "NONE" ? (
+            <span className={`stamp ${inv.monitoring === "NORMAL" ? "tone-active" : "tone-hold"}`}>
+              monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
+            </span>
+          ) : null}
+          <span className="stamp tone-neutral">issued {inv.issue_date}</span>
+          <span className="stamp tone-neutral">due {formatStamp(inv.due_epoch).slice(0, 10)}</span>
+        </div>
+        <div className="tile-strip" style={{ gap: 12 }}>
+          <div className="sheet-recessed" style={{ padding: 16 }}>
             <div className="v-label">Seller</div>
             <div className="v-mono">{truncAddr(inv.seller)}</div>
           </div>
-          <div>
-            <div className="v-label">Buyer</div>
+          <div className="sheet-recessed" style={{ padding: 16 }}>
+            <div className="v-label">Buyer wallet</div>
             <div className="v-mono">{truncAddr(inv.buyer)}</div>
-            <div style={{ marginTop: 4 }}>
-              {inv.buyer_ack_epoch ? (
-                <span className="stamp tone-good">countersigned on-chain</span>
-              ) : (
-                <span className="stamp tone-neutral">not countersigned</span>
-              )}
-              {inv.buyer_dispute_epoch ? (
-                <span className="stamp tone-bad" style={{ marginLeft: 6 }}>buyer dispute open</span>
-              ) : null}
-            </div>
           </div>
-          <div>
-            <div className="v-label">Reference · issued · due</div>
-            <div>
-              {inv.reference} · {inv.issue_date} · due {formatStamp(inv.due_epoch)}
+          <div className="sheet-recessed" style={{ padding: 16 }}>
+            <div className="v-label">Evidence</div>
+            <div className="v-mono">
+              v{inv.evidence_version || "—"}
+              {inv.evidence_root ? ` · ${inv.evidence_root.slice(0, 10)}…` : ""}
             </div>
-            {inv.status === "FUNDED" || inv.status === "REPAID" ? (
-              <div style={{ marginTop: 4 }}>
-                <span className="stamp tone-neutral">
-                  monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
-                </span>
-              </div>
-            ) : null}
           </div>
         </div>
         {inv.buyer_dispute_text ? (

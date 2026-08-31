@@ -598,3 +598,133 @@ code, .code {
   .page { padding: 32px 16px 80px; }
   .sheet { padding: 24px; }
 }
+
+/* ── dapp anatomy: tiles, row-cards, step flows ───────────────────────────── */
+
+.stack { display: grid; gap: 20px; }
+
+.tile {
+  border: 1px solid var(--line-dark);
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  background: var(--ink);
+}
+
+.tile .big {
+  font-family: var(--sans);
+  font-size: clamp(26px, 3vw, 40px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile .sub { font-size: 13px; color: var(--lichen); }
+
+.tile-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.tile-strip-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* list rows, Base-app style: one instrument per card, figure-forward */
+.row-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 24px;
+  align-items: center;
+  border: 1px solid var(--line-dark);
+  border-radius: 16px;
+  padding: 20px 24px;
+  background: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row-card:hover { border-color: var(--lichen); }
+
+.row-card .rc-figure {
+  font-family: var(--sans);
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* the lifecycle as a step flow — never ASCII */
+.step-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--tissue);
+  border: 1px solid var(--line-dark);
+  border-radius: 9999px;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+
+.step-chip::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--lime);
+}
+
+.step-arrow { color: var(--graphite); font-family: var(--mono); }
+
+/* action cards: one verb, one full-width button */
+.action-card {
+  border: 1px solid var(--line-dark);
+  border-radius: 16px;
+  padding: 24px;
+  background: var(--ink);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.action-card .btn { width: 100%; padding: 13px 18px; }
+
+.action-card h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.action-card p { margin: 0; font-size: 14px; color: var(--lichen); line-height: 1.45; }
+
+/* the instrument hero */
+.hero-card {
+  border: 1px solid var(--line-dark);
+  border-radius: 20px;
+  padding: 32px;
+  background: var(--ink);
+  display: grid;
+  gap: 20px;
+}
+
+.hero-amount {
+  font-family: var(--sans);
+  font-size: clamp(38px, 6vw, 64px);
+  letter-spacing: -0.025em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .tile-strip, .tile-strip-4 { grid-template-columns: 1fr 1fr; }
+  .row-card { grid-template-columns: 1fr; }
+  .row-card .rc-figure { text-align: left; }
+}

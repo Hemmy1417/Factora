@@ -137,10 +137,57 @@ The model recommends nothing in basis points and does not even name the decision
 
 ## Verified end-to-end
 
-The full arc below ran against the live deployment with real GEN. Reproduce it with `node web/scripts/live-demo.mjs <address>`.
+The full arc below ran against the live deployment with real GEN — reproduce it with `node web/scripts/live-demo.mjs <address>`. Worth noticing in the recorded run: the panel marked the seller pillar INSUFFICIENT because the whole record was seller-declared ("a single voice"), while crediting the buyer's contract-verified countersignature — the trust model steering a real judgment — and the reassessment after the buyer's on-chain dispute dropped the record to REVIEW_REQUIRED / HIGH without touching the already-funded terms.
 
 ```text
-(see docs/DEPLOYMENT.md for the complete transcript of the recorded run)
+FACTORA LIVE DEMO  ·  0xE2B4A382b040619779286fa808138A423B10C88a
+
+1. Acme registers the receivable and commits evidence v1
+  ok    registered as fac-000003  (INV-DEMO-1788183140)
+  ok    evidence v1 committed  (root bc5612ae183baaec…)
+
+2. MegaRetail's own wallet acknowledges the obligation
+  ok    countersigned on-chain — the fact a seller cannot manufacture
+
+3. The record goes to the panel (consensus round, real validators)
+  ok    panel ruled: FINANCEABLE · MEDIUM · score 62
+  ok    examined 4 of 4, excluded 0
+  ..    findings: seller INSUFFICIENT · buyer SUPPORTED · transaction SUPPORTED
+  ..    reason: The buyer's on-chain countersignature (contract-verified) is strong independent support for the buyer's identity and acknowledgement of the obligation, and the invoice amount of 100000000000000000 atto-GEN is internally consistent across EV-001 and EV-002. However, all four evidence items are seller-declared documents that corroborate one another but ultimately represent a single voice — no independent third-party verification of the seller's identity or standing exists on this record, warranting INSUFFICIENT for the seller finding. The transaction narrative (PO, delivery receipt, payment hist
+  ..    window closes 2026-08-31T13:49:43.000Z
+
+4. The walls hold while the verdict is pending
+  ok    refused: funding before finality
+  ok    refused: a stranger repaying
+
+5. The challenge window lapses; promotion is permissionless
+  ..    waiting 845s of real window
+  ok    FINANCEABLE — advance 7000 bps, fee 500 bps (table on pinned risk)
+
+6. The capital provider funds the derived advance exactly
+  ok    refused: funding one atto short
+  ok    funded with 0.070 GEN — escrowed, seller credited
+
+7. Acme claims the advance
+  ok    advance claimed — the transfer rides finalization
+
+8. New facts: the buyer disputes on-chain; a challenger bonds evidence
+  ok    buyer dispute recorded from the buyer's own wallet
+  ok    challenged with a 0.050 GEN bond — evidence appended as v2
+  ok    re-judged: REVIEW_REQUIRED · HIGH · score 42 (was 62)
+  ok    monitoring is now REVIEW_REQUIRED; funded terms untouched (7000 bps)
+
+9. The buyer repays; the split prepares, executes, and reconciles
+  ok    repaid 0.100 GEN into custody
+  ok    split prepared: provider 0.075 GEN · seller 0.025 GEN
+  ok    executed — SETTLED
+  ok    refused: settling twice
+  ok    PROVIDER claimed 0.075 GEN
+  ok    SELLER claimed 0.025 GEN
+  ok    CHALLENGER claimed 0.050 GEN
+  ok    custody reconciled to zero — every atto left through a claim
+
+ARC COMPLETE  ·  fac-000003  ·  0 failures
 ```
 
 Direct suite: **110 tests**. Mutation sweep: **57/57 guards pinned**, 5 declared depth, accept-control green. Web suite: **35 tests** including the signed-write proof and the live-measured finality fixtures. `genvm-lint check`: clean.
