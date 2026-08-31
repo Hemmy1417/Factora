@@ -8,7 +8,7 @@
 
 A business is owed money through a legitimate invoice and needs the capital now. A factoring provider will advance it - if the obligation is real. That fact lives in fragmented, unstructured evidence: the invoice, the purchase order, the delivery trail, the buyer's standing, the disputes nobody mentions. No price feed can settle it. Factora commits that evidence on-chain, puts it to a validator panel that judges it under consensus, and converts the judgment into bounded financing terms through a code table the model never touches.
 
-Live app: pending deployment · Contract: [`0xE2B4A382b040619779286fa808138A423B10C88a`](https://studio.genlayer.com) on GenLayer StudioNet
+Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0xE2B4A382b040619779286fa808138A423B10C88a`](https://studio.genlayer.com) on GenLayer StudioNet
 
 ## What it is
 

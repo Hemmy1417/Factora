@@ -225,6 +225,8 @@ export function Room({ id }: { id: string }) {
       </div>
       {assessment ? (
         <AssessmentSheet a={assessment} invoice={inv} />
+      ) : inv.pending_version || inv.assessed_version ? (
+        <p className="v-body">Reading the verdict from the chain…</p>
       ) : (
         <p className="v-body">
           No assessment yet. The seller commits evidence, then puts the
