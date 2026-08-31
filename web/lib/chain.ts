@@ -54,7 +54,7 @@ export function walletErrorMessage(err: unknown): string {
 
 /** Transient RPC noise that should be retried rather than surfaced. */
 const TRANSIENT =
-  /\[transient\]|rate limit|429|-32029|failed to fetch|fetch failed|unreachable|doctype|not valid json|unexpected token|502|503|504|timeout|econnreset|socket/i;
+  /\[transient\]|rate limit|429|-32029|failed to fetch|fetch failed|unreachable|doctype|not valid json|unexpected token|502|503|504|timeout|econnreset|socket|server busy|execution slots|retry later/i;
 
 export function isTransient(err: unknown): boolean {
   const msg =

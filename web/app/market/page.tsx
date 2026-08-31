@@ -22,8 +22,8 @@ export default function MarketPage() {
       try {
         // One bounded page of the newest instruments; the marketplace shows
         // the financeable slice of it.
-        const page = await getInvoices(0, 50, true);
-        const s = await getStats(true);
+        const page = await getInvoices(0, 50);
+        const s = await getStats();
         if (!alive) return;
         setOpen(page.invoices.filter(
           (v) => v.status === "FINANCEABLE" && !v.challenge_open));
@@ -35,7 +35,7 @@ export default function MarketPage() {
       }
     };
     void load();
-    const t = setInterval(() => void load(), 15_000);
+    const t = setInterval(() => void load(), 60_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
@@ -43,35 +43,19 @@ export default function MarketPage() {
     <div>
       <h1 className="v-display" style={{ fontSize: 34 }}>Funding marketplace</h1>
       <p className="v-body" style={{ marginTop: 8 }}>
-        Receivables a validator panel has judged financeable, with their
-        verdicts final and their windows lapsed. The advance and the fee are
-        table-derived from the pinned risk class — inspect the evidence graph
-        before you fund; that is what it is for.
+        Judged financeable, final, and open. Inspect the evidence before you
+        fund — that is what it is for.
       </p>
       {problem ? <p className="note bad">{problem}</p> : null}
-
-      {stats ? (
-        <div className="grid-3" style={{ marginTop: 24 }}>
-          <div className="sheet-recessed">
-            <div className="v-label">Instruments registered</div>
-            <div className="v-figure" style={{ fontSize: 26 }}>{stats.invoices}</div>
-          </div>
-          <div className="sheet-recessed">
-            <div className="v-label">Funded</div>
-            <div className="v-figure" style={{ fontSize: 26 }}>{stats.funded}</div>
-          </div>
-          <div className="sheet-recessed">
-            <div className="v-label">In custody</div>
-            <div className="v-figure" style={{ fontSize: 26 }}>
-              {formatGen(stats.escrow_atto)} GEN
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <div className="section-head">
         <span className="section-no">01</span>
         <h2>Open for funding</h2>
+        {stats ? (
+          <span className="aside v-label">
+            {stats.invoices} registered · {stats.funded} funded
+          </span>
+        ) : null}
       </div>
       {open.length === 0 ? (
         <p className="v-body">
@@ -95,6 +79,9 @@ export default function MarketPage() {
                   </span>
                   <span className={`stamp ${v.buyer_ack_epoch ? "tone-good" : "tone-neutral"}`}>
                     {v.buyer_ack_epoch ? "countersigned" : "declared only"}
+                  </span>
+                  <span className="stamp tone-hold">
+                    {formatSpan(v.funding_deadline_epoch - now)} left
                   </span>
                 </div>
                 <div>
@@ -120,16 +107,11 @@ export default function MarketPage() {
                     <div className="v-figure" style={{ fontSize: 18 }}>
                       {formatBps(v.fee_bps)} fee
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--lichen)" }}>
-                      on repayment
-                    </div>
+
                   </div>
                   <div className="sheet-recessed" style={{ padding: 14 }}>
                     <div className="v-label">Score</div>
-                    <div className="v-figure" style={{ fontSize: 18 }}>{v.score}</div>
-                    <div style={{ fontSize: 12, color: "var(--lichen)" }}>
-                      window {formatSpan(v.funding_deadline_epoch - now)} left
-                    </div>
+                    <div className="v-figure" style={{ fontSize: 18 }}>{v.score} / 100</div>
                   </div>
                 </div>
                 <span className="btn" style={{ textAlign: "center" }}>

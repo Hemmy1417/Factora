@@ -25,7 +25,7 @@ import { EvidenceEditor, blank, toItemsJson, type DraftItem } from "./EvidenceEd
 import { MonoRow, StatusStamp } from "./bits";
 import { TxFlow } from "./TxFlow";
 
-const REFRESH_MS = 10_000;
+const REFRESH_MS = 45_000;
 
 function useNowSec(): number {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -48,6 +48,7 @@ export function Room({ id }: { id: string }) {
   const [tx, setTx] = useState<TxProgress>({ stage: "idle", detail: "" });
   const busy = inFlight(tx.stage);
   const alive = useRef(true);
+  const histVersion = useRef(-1);
 
   const refresh = useCallback(async (force = false) => {
     try {
@@ -66,14 +67,19 @@ export function Room({ id }: { id: string }) {
       if (!alive.current) return;
       setManifest(man);
       setAssessment(a);
-      const hist: Assessment[] = [];
-      for (let vv = 1; vv <= version; vv++) {
-        if (vv === shownVersion && a) { hist.push(a); continue; }
-        const h = await getAssessment(id, vv, force);
-        if (h) hist.push(h);
+      // History is append-only: re-read it only when the version count
+      // moves, not on every ambient tick — the read budget is real.
+      if (histVersion.current !== version) {
+        const hist: Assessment[] = [];
+        for (let vv = 1; vv <= version; vv++) {
+          if (vv === shownVersion && a) { hist.push(a); continue; }
+          const h = await getAssessment(id, vv, force);
+          if (h) hist.push(h);
+        }
+        if (!alive.current) return;
+        histVersion.current = version;
+        setHistory(hist);
       }
-      if (!alive.current) return;
-      setHistory(hist);
       if (w.address) {
         const cl = await getClaimable(w.address, force);
         if (alive.current) setClaimable(cl);
@@ -89,7 +95,8 @@ export function Room({ id }: { id: string }) {
     alive.current = true;
     // First read deferred a tick so a mount never renders twice in one pass.
     const kick = setTimeout(() => void refresh(true), 0);
-    const t = setInterval(() => void refresh(true), REFRESH_MS);
+    // Ambient ticks ride the caches; only user actions force a fresh read.
+    const t = setInterval(() => void refresh(false), REFRESH_MS);
     return () => { alive.current = false; clearTimeout(kick); clearInterval(t); };
   }, [refresh]);
 

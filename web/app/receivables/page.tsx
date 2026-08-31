@@ -50,7 +50,7 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
             <div className="stack" style={{ gap: 4, justifyItems: "end" }}>
               <span className="rc-figure">{formatGen(v.amount_atto)} GEN</span>
               <span className="v-mono" style={{ color: "var(--lichen)", fontSize: 12 }}>
-                registered {formatStamp(v.created_epoch)}
+                {formatStamp(v.created_epoch).slice(0, 10)}
               </span>
             </div>
           </Link>
@@ -72,13 +72,13 @@ export default function ReceivablesPage() {
     let alive = true;
     const load = async () => {
       try {
-        const page = await getInvoices(offset, PAGE, true);
+        const page = await getInvoices(offset, PAGE);
         if (!alive) return;
         setAll(page.invoices);
         setTotal(page.total);
         setProblem("");
         if (w.address) {
-          const m = await getInvoicesFor(w.address, true);
+          const m = await getInvoicesFor(w.address);
           if (alive) setMine(m.reverse());
         } else {
           setMine([]);
@@ -88,7 +88,7 @@ export default function ReceivablesPage() {
       }
     };
     void load();
-    const t = setInterval(() => void load(), 20_000);
+    const t = setInterval(() => void load(), 60_000);
     return () => { alive = false; clearInterval(t); };
   }, [offset, w.address]);
 

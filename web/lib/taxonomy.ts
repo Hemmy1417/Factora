@@ -19,11 +19,8 @@ export const EVIDENCE_TYPE_LABEL: Record<string, string> = {
  * frozen but never verified; only the buyer's own wallet actions and pages
  * the contract fetches itself are contract-verified. */
 export const PROVENANCE_NOTE =
-  "Documents you commit are hashed and frozen — tamper-evident, but still " +
-  "your own declarations. The panel is told exactly that. The buyer's " +
-  "on-chain acknowledgement and contract-fetched pages are the only " +
-  "contract-verified evidence, and an unacknowledged record caps the " +
-  "advance rate in code.";
+  "Committed documents are hashed and frozen — and the panel is told they " +
+  "are your declarations, not verified facts.";
 
 export const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",

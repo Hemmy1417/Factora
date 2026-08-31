@@ -112,9 +112,8 @@ export default function CreatePage() {
     <div style={{ maxWidth: 760 }}>
       <h1 className="v-display" style={{ fontSize: 34 }}>Register a receivable</h1>
       <p className="v-body" style={{ marginTop: 8 }}>
-        The invoice registers with a deterministic identity — parties, amounts
-        and dates, hashed. Its evidence then commits as exact bytes. Nothing
-        here is a form for its own sake: every bound is the contract&apos;s own.
+        Two steps: register the instrument, then commit its evidence as
+        frozen bytes.
       </p>
 
       {!w.address ? (
@@ -133,8 +132,8 @@ export default function CreatePage() {
           <input type="text" value={buyer} placeholder="0x…"
             onChange={(e) => setBuyer(e.target.value)} disabled={!!createdId} />
           <span className="hint">
-            The wallet that can countersign the obligation and later repay.
-            An unacknowledged record still assesses, but the advance caps lower.
+            The wallet that countersigns and repays. No countersignature caps
+            the advance.
           </span>
         </div>
         <div className="grid-2">
@@ -171,8 +170,8 @@ export default function CreatePage() {
           <input type="number" value={windowMin} min={15}
             onChange={(e) => setWindowMin(Number(e.target.value))} disabled={!!createdId} />
           <span className="hint">
-            Every verdict waits this long before taking effect, so a
-            challenger always has a real window. Minimum 15 minutes.
+            Every verdict waits this long before taking effect. Minimum 15
+            minutes.
           </span>
         </div>
         {!createdId ? (
