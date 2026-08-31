@@ -160,7 +160,6 @@ export function Room({ id }: { id: string }) {
               monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
             </span>
           ) : null}
-          <span className="stamp tone-neutral">issued {inv.issue_date}</span>
           <span className="stamp tone-neutral">due {formatStamp(inv.due_epoch).slice(0, 10)}</span>
         </div>
         <div className="tile-strip" style={{ gap: 12 }}>
@@ -187,10 +186,28 @@ export function Room({ id }: { id: string }) {
         ) : null}
       </div>
 
-      {/* ── the verdict ───────────────────────────────────────────────── */}
+      {/* ── actions ───────────────────────────────────────────────────── */}
       <div className="section-head">
         <span className="section-no">01</span>
-        <h2>Financeability</h2>
+        <h2>Actions</h2>
+      </div>
+      {!me ? (
+        <p className="v-body">Connect a wallet to act on this receivable.</p>
+      ) : (
+        <Actions
+          inv={inv} now={now} me={me}
+          isSeller={isSeller} isBuyer={isBuyer}
+          busy={busy} write={write} claimable={claimable}
+        />
+      )}
+      <div style={{ marginTop: 16 }}>
+        <TxFlow p={tx} />
+      </div>
+
+      {/* ── the verdict ───────────────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">02</span>
+        <h2>The verdict</h2>
         {inv.status === "PENDING_FINALITY" ? (
           <span className="aside v-label">
             window {inv.pending_until_epoch > now
@@ -210,8 +227,8 @@ export function Room({ id }: { id: string }) {
 
       {/* ── the evidence ──────────────────────────────────────────────── */}
       <div className="section-head">
-        <span className="section-no">02</span>
-        <h2>The evidence graph</h2>
+        <span className="section-no">03</span>
+        <h2>The evidence</h2>
         <span className="aside v-label">
           version {inv.evidence_version || "—"} · root{" "}
           {inv.evidence_root ? inv.evidence_root.slice(0, 12) + "…" : "—"}
@@ -219,11 +236,12 @@ export function Room({ id }: { id: string }) {
       </div>
       <EvidenceGraph manifest={manifest} assessment={assessment} />
 
-      {/* ── the financial position ────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">03</span>
-        <h2>Financial position</h2>
-      </div>
+      {/* ── position, record & history — folded ───────────────────────── */}
+      <details style={{ marginTop: 72 }}>
+        <summary className="v-label" style={{ cursor: "pointer" }}>
+          Position, record &amp; history
+        </summary>
+        <div className="stack" style={{ marginTop: 16 }}>
       <div className="sheet">
         <dl className="defs">
           <div className="def-row">
@@ -266,30 +284,6 @@ export function Room({ id }: { id: string }) {
           ) : null}
         </dl>
       </div>
-
-      {/* ── actions ───────────────────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">04</span>
-        <h2>Actions</h2>
-      </div>
-      {!me ? (
-        <p className="v-body">Connect a wallet to act on this receivable.</p>
-      ) : (
-        <Actions
-          inv={inv} now={now} me={me}
-          isSeller={isSeller} isBuyer={isBuyer}
-          busy={busy} write={write} claimable={claimable}
-        />
-      )}
-      <div style={{ marginTop: 16 }}>
-        <TxFlow p={tx} />
-      </div>
-
-      {/* ── the record ────────────────────────────────────────────────── */}
-      <div className="section-head">
-        <span className="section-no">05</span>
-        <h2>The record</h2>
-      </div>
       <div className="sheet">
         <dl className="defs">
           <MonoRow label="Contract" value={CONTRACT_ADDRESS} />
@@ -317,6 +311,8 @@ export function Room({ id }: { id: string }) {
           </>
         ) : null}
       </div>
+        </div>
+      </details>
     </div>
   );
 }
@@ -353,10 +349,9 @@ function Actions({
   if (isSeller && inv.status === "COMMITTED") {
     cards.push(
       <ActionCard key="assess" title="Put the record to the panel"
-        body={`Version ${inv.evidence_version} is committed. The GenLayer panel
-          reads it under consensus; the verdict then holds through a
-          ${formatSpan(inv.challenge_window_seconds)} challenge window before
-          anything takes effect.`}>
+        body={`The panel reads version ${inv.evidence_version} under consensus;
+          the verdict waits out a ${formatSpan(inv.challenge_window_seconds)}
+          challenge window before taking effect.`}>
         <button className="btn" disabled={busy}
           onClick={() => void write("request_assessment", [id], 0n,
             P.assessmentPendingAt(id, inv.evidence_version),
@@ -372,9 +367,7 @@ function Actions({
       <ActionCard key="recommit"
         title={inv.evidence_version ? "Commit a new evidence version" : "Commit the evidence"}
         body={inv.evidence_version
-          ? `A new version walks the invoice back to COMMITTED and requires a
-             fresh assessment — terms are always judged against the latest
-             committed bytes.`
+          ? "A new version requires a fresh assessment - terms always follow the latest bytes."
           : "The record the panel will read: documents as exact bytes, pages as frozen urls."}>
         {recommit ? (
           <div style={{ display: "grid", gap: 12 }}>
@@ -432,9 +425,7 @@ function Actions({
       && !["SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
     cards.push(
       <ActionCard key="ack" title="Acknowledge the obligation"
-        body="Your wallet countersigns that this invoice is real. It is the
-          one identity fact the seller cannot manufacture, and it raises the
-          advance the table will authorize.">
+        body="The one identity fact the seller cannot manufacture - and it raises the advance the table authorizes.">
         <button className="btn" disabled={busy}
           onClick={() => void write("acknowledge_invoice", [id], 0n,
             P.acknowledged(id), "Acknowledged on-chain.")}>
@@ -447,9 +438,7 @@ function Actions({
       && !["SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
     cards.push(
       <ActionCard key="dispute" title="Dispute the invoice" quiet
-        body="Filed from your wallet, on-chain — contract-verified adverse
-          evidence. Any assessment run while it is open cannot conclude
-          financeable.">
+        body="On-chain, from your wallet. No assessment can conclude financeable while it is open.">
         <div style={{ display: "grid", gap: 10 }}>
           <textarea rows={3} value={disputeText}
             placeholder="What is wrong with this invoice?"
@@ -514,10 +503,9 @@ function Actions({
       && !inv.challenge_open && !isSeller) {
     cards.push(
       <ActionCard key="challenge" title="Challenge the record" quiet
-        body={`Disagree with a bond of ${formatGen(inv.challenge_bond_required_atto)} GEN
-          and new evidence. Your items append as version
-          ${inv.evidence_version + 1}; the panel re-judges the whole record.
-          A challenge that changes the verdict or risk returns your bond.`}>
+        body={`Bond ${formatGen(inv.challenge_bond_required_atto)} GEN with new
+          evidence; the panel re-judges the whole record. A changed verdict
+          or risk returns the bond.`}>
         <div style={{ display: "grid", gap: 10 }}>
           <textarea rows={2} value={challengeReason}
             placeholder="Your grounds (at least 20 characters)"
@@ -540,9 +528,8 @@ function Actions({
   if (inv.challenge_open) {
     cards.push(
       <ActionCard key="reassess" title="Run the reassessment"
-        body={`A challenge is open against version ${inv.challenged_version};
-          the panel re-judges version ${inv.challenge_new_version}. Execution
-          is permissionless, so a failed round can be retried by anyone.`}>
+        body={`The panel re-judges version ${inv.challenge_new_version}.
+          Permissionless - a failed round can be retried by anyone.`}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={busy}
             onClick={() => void write("reassess", [id], 0n,
@@ -565,8 +552,7 @@ function Actions({
   if (inv.status === "REPAID" && !inv.challenge_open) {
     cards.push(
       <ActionCard key="prepare" title="Prepare the settlement"
-        body="Computes the deterministic split from state and freezes it.
-          Finality and payment are two different actions.">
+        body="Computes the split from state and freezes it. Payment is the next, separate step.">
         <button className="btn" disabled={busy}
           onClick={() => void write("prepare_settlement", [id], 0n,
             P.statusIs(id, ["SETTLEMENT_READY"]),
@@ -604,9 +590,7 @@ function Actions({
   if (inv.status === "FUNDED" && now > inv.due_epoch + 86_400) {
     cards.push(
       <ActionCard key="default" title="Mark the default" quiet
-        body="Due date plus grace has passed with no repayment. The record
-          states the loss; the MVP holds no seller collateral to seize, and
-          says so rather than pretending.">
+        body="Due date plus grace passed unpaid. The record states the loss honestly.">
         <button className="btn btn-danger" disabled={busy}
           onClick={() => void write("mark_defaulted", [id], 0n,
             P.statusIs(id, ["DEFAULTED"]), "Recorded as defaulted.")}>
