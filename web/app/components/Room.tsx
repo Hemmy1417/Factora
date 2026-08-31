@@ -633,7 +633,7 @@ function ActionCard({
 }) {
   return (
     <div className="sheet"
-      style={{ padding: 20, ...(quiet ? { background: "var(--paper)" } : {}) }}>
+      style={{ padding: 20, ...(quiet ? { background: "transparent" } : {}) }}>
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ fontSize: 15.5, fontWeight: 600 }}>{title}</div>
         <p className="v-body" style={{ margin: 0, fontSize: 13 }}>{body}</p>
