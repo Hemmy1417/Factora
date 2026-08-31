@@ -1,0 +1,662 @@
+"use client";
+
+/**
+ * The Receivable Room — one instrument, every fact about it, and every verb
+ * the connected wallet is actually entitled to. Status comes from the
+ * contract on an interval; nothing here invents a transition, and every
+ * write closes through a fresh authoritative read plus the finality watch.
+ */
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getAssessment, getEvidence, getInvoice, getClaimable, invalidateReads,
+} from "@/lib/read";
+import type { Assessment, Invoice, Manifest } from "@/lib/types";
+import {
+  CONTRACT_ADDRESS, formatBps, formatGen, formatSpan, formatStamp,
+} from "@/lib/config";
+import { sameAddress } from "@/lib/chain";
+import { useWallet } from "@/lib/wallet";
+import { inFlight, writeAndConfirm, type TxProgress } from "@/lib/tx";
+import * as P from "@/lib/predicates";
+import { MONITORING_LABEL } from "@/lib/taxonomy";
+import { AssessmentSheet } from "./AssessmentSheet";
+import { EvidenceGraph } from "./EvidenceGraph";
+import { EvidenceEditor, blank, toItemsJson, type DraftItem } from "./EvidenceEditor";
+import { MonoRow, StatusStamp } from "./bits";
+import { TxFlow } from "./TxFlow";
+
+const REFRESH_MS = 10_000;
+
+function useNowSec(): number {
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
+export function Room({ id }: { id: string }) {
+  const w = useWallet();
+  const now = useNowSec();
+  const [inv, setInv] = useState<Invoice | null>(null);
+  const [manifest, setManifest] = useState<Manifest | null>(null);
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
+  const [history, setHistory] = useState<Assessment[]>([]);
+  const [claimable, setClaimable] = useState("0");
+  const [readProblem, setReadProblem] = useState("");
+  const [tx, setTx] = useState<TxProgress>({ stage: "idle", detail: "" });
+  const busy = inFlight(tx.stage);
+  const alive = useRef(true);
+
+  const refresh = useCallback(async (force = false) => {
+    try {
+      const v = await getInvoice(id, force);
+      if (!alive.current) return;
+      setInv(v);
+      setReadProblem("");
+      if (!v) return;
+      const version = v.evidence_version;
+      const shownVersion =
+        v.pending_version || v.assessed_version || version;
+      const [man, a] = await Promise.all([
+        version ? getEvidence(id, version, force) : Promise.resolve(null),
+        shownVersion ? getAssessment(id, shownVersion, force) : Promise.resolve(null),
+      ]);
+      if (!alive.current) return;
+      setManifest(man);
+      setAssessment(a);
+      const hist: Assessment[] = [];
+      for (let vv = 1; vv <= version; vv++) {
+        if (vv === shownVersion && a) { hist.push(a); continue; }
+        const h = await getAssessment(id, vv, force);
+        if (h) hist.push(h);
+      }
+      if (!alive.current) return;
+      setHistory(hist);
+      if (w.address) {
+        const cl = await getClaimable(w.address, force);
+        if (alive.current) setClaimable(cl);
+      }
+    } catch (e) {
+      if (alive.current) {
+        setReadProblem(e instanceof Error ? e.message : "The chain could not be read.");
+      }
+    }
+  }, [id, w.address]);
+
+  useEffect(() => {
+    alive.current = true;
+    // First read deferred a tick so a mount never renders twice in one pass.
+    const kick = setTimeout(() => void refresh(true), 0);
+    const t = setInterval(() => void refresh(true), REFRESH_MS);
+    return () => { alive.current = false; clearTimeout(kick); clearInterval(t); };
+  }, [refresh]);
+
+  const write = useCallback(async (
+    functionName: string,
+    args: unknown[],
+    valueAtto: bigint,
+    predicate: () => Promise<boolean>,
+    confirmedDetail?: string,
+  ) => {
+    if (!w.client) return;
+    try {
+      await writeAndConfirm({
+        client: w.client,
+        address: CONTRACT_ADDRESS,
+        functionName,
+        args,
+        valueAtto,
+        predicate,
+        onProgress: setTx,
+        confirmedDetail,
+      });
+    } catch {
+      /* the stepper already shows the terminal stage */
+    } finally {
+      invalidateReads();
+      void refresh(true);
+    }
+  }, [w.client, refresh]);
+
+  if (!inv) {
+    return (
+      <div>
+        <p className="v-body">{readProblem || "Reading the contract…"}</p>
+      </div>
+    );
+  }
+
+  const me = w.address;
+  const isSeller = sameAddress(me, inv.seller);
+  const isBuyer = sameAddress(me, inv.buyer);
+  const amount = BigInt(inv.amount_atto);
+  const fee = (amount * BigInt(inv.fee_bps)) / 10_000n;
+
+  return (
+    <div>
+      {/* ── the instrument header ─────────────────────────────────────── */}
+      <div className="sheet" style={{ display: "grid", gap: 14 }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" }}>
+          <span className="v-mono" style={{ color: "var(--leaf)" }}>{inv.invoice_id}</span>
+          <h1 className="v-display" style={{ fontSize: 30 }}>
+            {formatGen(inv.amount_atto)} GEN receivable
+          </h1>
+          <span style={{ marginLeft: "auto" }}>
+            <StatusStamp status={inv.status} tilted />
+          </span>
+        </div>
+        <div className="grid-3">
+          <div>
+            <div className="v-label">Seller</div>
+            <div className="v-mono breakable">{inv.seller}</div>
+          </div>
+          <div>
+            <div className="v-label">Buyer</div>
+            <div className="v-mono breakable">{inv.buyer}</div>
+            <div style={{ marginTop: 4 }}>
+              {inv.buyer_ack_epoch ? (
+                <span className="stamp tone-good">countersigned on-chain</span>
+              ) : (
+                <span className="stamp tone-neutral">not countersigned</span>
+              )}
+              {inv.buyer_dispute_epoch ? (
+                <span className="stamp tone-bad" style={{ marginLeft: 6 }}>buyer dispute open</span>
+              ) : null}
+            </div>
+          </div>
+          <div>
+            <div className="v-label">Reference · issued · due</div>
+            <div>
+              {inv.reference} · {inv.issue_date} · due {formatStamp(inv.due_epoch)}
+            </div>
+            {inv.status === "FUNDED" || inv.status === "REPAID" ? (
+              <div style={{ marginTop: 4 }}>
+                <span className="stamp tone-neutral">
+                  monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {inv.buyer_dispute_text ? (
+          <p className="note bad" style={{ margin: 0 }}>
+            The buyer&apos;s wallet filed on-chain: “{inv.buyer_dispute_text}”
+          </p>
+        ) : null}
+      </div>
+
+      {/* ── the verdict ───────────────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">01</span>
+        <h2>Financeability</h2>
+        {inv.status === "PENDING_FINALITY" ? (
+          <span className="aside v-label">
+            window {inv.pending_until_epoch > now
+              ? `closes in ${formatSpan(inv.pending_until_epoch - now)}`
+              : "closed — awaiting promotion"}
+          </span>
+        ) : null}
+      </div>
+      {assessment ? (
+        <AssessmentSheet a={assessment} invoice={inv} />
+      ) : (
+        <p className="v-body">
+          No assessment yet. The seller commits evidence, then puts the
+          record to the panel.
+        </p>
+      )}
+
+      {/* ── the evidence ──────────────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">02</span>
+        <h2>The evidence graph</h2>
+        <span className="aside v-label">
+          version {inv.evidence_version || "—"} · root{" "}
+          {inv.evidence_root ? inv.evidence_root.slice(0, 12) + "…" : "—"}
+        </span>
+      </div>
+      <EvidenceGraph manifest={manifest} assessment={assessment} />
+
+      {/* ── the financial position ────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">03</span>
+        <h2>Financial position</h2>
+      </div>
+      <div className="sheet">
+        <dl className="defs">
+          <div className="def-row">
+            <dt>Invoice value</dt>
+            <dd className="v-figure">{formatGen(inv.amount_atto)} GEN</dd>
+          </div>
+          <div className="def-row">
+            <dt>Advance {inv.advance_rate_bps ? `(${formatBps(inv.advance_rate_bps)})` : ""}</dt>
+            <dd className="v-figure">
+              {inv.advance_rate_bps ? `${formatGen(inv.advance_atto)} GEN` : "—"}
+            </dd>
+          </div>
+          <div className="def-row">
+            <dt>Factoring fee {inv.fee_bps ? `(${formatBps(inv.fee_bps)})` : ""}</dt>
+            <dd className="v-figure">{inv.fee_bps ? `${formatGen(fee)} GEN` : "—"}</dd>
+          </div>
+          <div className="def-row">
+            <dt>Funded</dt>
+            <dd className="v-figure">
+              {inv.funded_epoch ? `${formatGen(inv.funded_advance_atto)} GEN` : "—"}
+            </dd>
+          </div>
+          <div className="def-row">
+            <dt>Repaid</dt>
+            <dd className="v-figure">
+              {inv.repaid_epoch ? `${formatGen(inv.repaid_atto)} GEN` : "—"}
+            </dd>
+          </div>
+          {inv.settlement ? (
+            <>
+              <div className="def-row">
+                <dt>To the capital provider (advance + fee)</dt>
+                <dd className="v-figure">{formatGen(inv.settlement.provider_total_atto)} GEN</dd>
+              </div>
+              <div className="def-row total">
+                <dt>To the seller (reserve, net of fee)</dt>
+                <dd className="v-figure">{formatGen(inv.settlement.seller_total_atto)} GEN</dd>
+              </div>
+            </>
+          ) : null}
+        </dl>
+      </div>
+
+      {/* ── actions ───────────────────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">04</span>
+        <h2>Actions</h2>
+      </div>
+      {!me ? (
+        <p className="v-body">Connect a wallet to act on this receivable.</p>
+      ) : (
+        <Actions
+          inv={inv} now={now} me={me}
+          isSeller={isSeller} isBuyer={isBuyer}
+          busy={busy} write={write} claimable={claimable}
+        />
+      )}
+      <div style={{ marginTop: 16 }}>
+        <TxFlow p={tx} />
+      </div>
+
+      {/* ── the record ────────────────────────────────────────────────── */}
+      <div className="section-head">
+        <span className="section-no">05</span>
+        <h2>The record</h2>
+      </div>
+      <div className="sheet">
+        <dl className="defs">
+          <MonoRow label="Contract" value={CONTRACT_ADDRESS} />
+          <MonoRow label="Invoice" value={inv.invoice_id} />
+          <MonoRow label="Status" value={inv.status} />
+          <MonoRow label="Evidence root" value={inv.evidence_root} />
+          <MonoRow label="Assessed version" value={String(inv.assessed_version || "—")} />
+          <MonoRow label="Registered" value={formatStamp(inv.created_epoch)} />
+          {inv.funded_epoch ? <MonoRow label="Funded" value={formatStamp(inv.funded_epoch)} /> : null}
+          {inv.repaid_epoch ? <MonoRow label="Repaid" value={formatStamp(inv.repaid_epoch)} /> : null}
+          {inv.settled_epoch ? <MonoRow label="Settled" value={formatStamp(inv.settled_epoch)} /> : null}
+        </dl>
+        {history.length > 1 ? (
+          <>
+            <hr className="hr-rule" />
+            <div className="v-label">Every assessment, preserved</div>
+            <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+              {history.map((h) => (
+                <div key={h.assessment_id} className="v-mono" style={{ fontSize: 12 }}>
+                  v{h.evidence_version} · {h.decision} · {h.risk} · score {h.score} ·{" "}
+                  {formatStamp(h.observed_epoch)}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ── the verbs, role-gated ──────────────────────────────────────────────── */
+
+function Actions({
+  inv, now, me, isSeller, isBuyer, busy, write, claimable,
+}: {
+  inv: Invoice;
+  now: number;
+  me: string;
+  isSeller: boolean;
+  isBuyer: boolean;
+  busy: boolean;
+  claimable: string;
+  write: (
+    fn: string, args: unknown[], value: bigint,
+    predicate: () => Promise<boolean>, detail?: string,
+  ) => Promise<void>;
+}) {
+  const [disputeText, setDisputeText] = useState("");
+  const [challengeReason, setChallengeReason] = useState("");
+  const [challengeItems, setChallengeItems] = useState<DraftItem[]>([blank()]);
+  const [recommit, setRecommit] = useState(false);
+  const [recommitItems, setRecommitItems] = useState<DraftItem[]>(
+    [blank(), blank()]);
+
+  const cards: React.ReactNode[] = [];
+  const amount = BigInt(inv.amount_atto);
+  const id = inv.invoice_id;
+
+  // seller ──────────────────────────────────────────────────────────────
+  if (isSeller && inv.status === "COMMITTED") {
+    cards.push(
+      <ActionCard key="assess" title="Put the record to the panel"
+        body={`Version ${inv.evidence_version} is committed. The GenLayer panel
+          reads it under consensus; the verdict then holds through a
+          ${formatSpan(inv.challenge_window_seconds)} challenge window before
+          anything takes effect.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("request_assessment", [id], 0n,
+            P.assessmentPendingAt(id, inv.evidence_version),
+            "The panel has ruled. The verdict is recorded and its challenge window is running.")}>
+          Request assessment
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isSeller && ["DRAFT", "COMMITTED", "NOT_FINANCEABLE", "REVIEW", "FINANCEABLE"]
+      .includes(inv.status) && !inv.challenge_open) {
+    cards.push(
+      <ActionCard key="recommit"
+        title={inv.evidence_version ? "Commit a new evidence version" : "Commit the evidence"}
+        body={inv.evidence_version
+          ? `A new version walks the invoice back to COMMITTED and requires a
+             fresh assessment — terms are always judged against the latest
+             committed bytes.`
+          : "The record the panel will read: documents as exact bytes, pages as frozen urls."}>
+        {recommit ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <EvidenceEditor items={recommitItems} onChange={setRecommitItems} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn" disabled={busy}
+                onClick={() => void write("commit_evidence",
+                  [id, toItemsJson(recommitItems)], 0n,
+                  P.evidenceVersionIs(id, inv.evidence_version + 1),
+                  "Evidence committed and frozen.")}>
+                Commit version {inv.evidence_version + 1}
+              </button>
+              <button className="btn btn-quiet" onClick={() => setRecommit(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-quiet" onClick={() => setRecommit(true)}>
+            Open the composer
+          </button>
+        )}
+      </ActionCard>,
+    );
+  }
+  if (isSeller && inv.funded_epoch > 0 && !inv.advance_claimed) {
+    cards.push(
+      <ActionCard key="advance" title="Claim the advance"
+        body={`${formatGen(inv.funded_advance_atto)} GEN is credited to you from funding.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("claim_advance", [id], 0n,
+            P.claimableDrained(me), "The advance is on its way to your wallet.")}>
+          Claim {formatGen(inv.funded_advance_atto)} GEN
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isSeller && ["DRAFT", "COMMITTED", "PENDING_FINALITY", "FINANCEABLE",
+                   "NOT_FINANCEABLE", "REVIEW"].includes(inv.status)
+      && !inv.challenge_open) {
+    cards.push(
+      <ActionCard key="cancel" title="Cancel the registration" quiet
+        body="Available until funding moves. Cancellation is terminal.">
+        <button className="btn btn-danger" disabled={busy}
+          onClick={() => void write("cancel_invoice", [id], 0n,
+            P.statusIs(id, ["CANCELLED"]), "Cancelled.")}>
+          Cancel invoice
+        </button>
+      </ActionCard>,
+    );
+  }
+
+  // buyer ───────────────────────────────────────────────────────────────
+  if (isBuyer && !inv.buyer_ack_epoch
+      && !["SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
+    cards.push(
+      <ActionCard key="ack" title="Acknowledge the obligation"
+        body="Your wallet countersigns that this invoice is real. It is the
+          one identity fact the seller cannot manufacture, and it raises the
+          advance the table will authorize.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("acknowledge_invoice", [id], 0n,
+            P.acknowledged(id), "Acknowledged on-chain.")}>
+          Acknowledge
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isBuyer && !inv.buyer_dispute_epoch
+      && !["SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
+    cards.push(
+      <ActionCard key="dispute" title="Dispute the invoice" quiet
+        body="Filed from your wallet, on-chain — contract-verified adverse
+          evidence. Any assessment run while it is open cannot conclude
+          financeable.">
+        <div style={{ display: "grid", gap: 10 }}>
+          <textarea rows={3} value={disputeText}
+            placeholder="What is wrong with this invoice?"
+            onChange={(e) => setDisputeText(e.target.value)} />
+          <button className="btn btn-danger" disabled={busy || disputeText.trim().length < 10}
+            onClick={() => void write("file_buyer_dispute", [id, disputeText.trim()], 0n,
+              P.disputeFiled(id), "Your dispute is on the record.")}>
+            File the dispute
+          </button>
+        </div>
+      </ActionCard>,
+    );
+  }
+  if (isBuyer && ["FUNDED", "DEFAULTED"].includes(inv.status)) {
+    cards.push(
+      <ActionCard key="repay" title="Repay the invoice"
+        body={`The full amount, in one payment: ${formatGen(inv.amount_atto)} GEN.
+          The contract holds it until the deterministic split executes.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("repay", [id], amount,
+            P.statusIs(id, ["REPAID"]), "Repayment received into custody.")}>
+          Repay {formatGen(inv.amount_atto)} GEN
+        </button>
+      </ActionCard>,
+    );
+  }
+
+  // capital provider ────────────────────────────────────────────────────
+  if (!isSeller && !isBuyer && inv.status === "FINANCEABLE"
+      && !inv.challenge_open && now <= inv.funding_deadline_epoch) {
+    cards.push(
+      <ActionCard key="fund" title="Fund this receivable"
+        body={`Deposit the advance — exactly ${formatGen(inv.advance_atto)} GEN
+          (${formatBps(inv.advance_rate_bps)} of face). Repayment returns your
+          principal plus the ${formatBps(inv.fee_bps)} factoring fee.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("fund", [id], BigInt(inv.advance_atto),
+            P.fundedBy(id, me), "Funded. The advance is credited to the seller.")}>
+          Fund {formatGen(inv.advance_atto)} GEN
+        </button>
+      </ActionCard>,
+    );
+  }
+
+  // permissionless keeping ──────────────────────────────────────────────
+  if (inv.status === "PENDING_FINALITY" && !inv.challenge_open
+      && now > inv.pending_until_epoch) {
+    cards.push(
+      <ActionCard key="finalize" title="Promote the verdict"
+        body="The challenge window has lapsed unchallenged. Promotion is
+          permissionless — anyone may make the verdict effective.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("finalize_assessment", [id], 0n,
+            P.promotedFrom(id, inv.pending_version),
+            "The verdict is now in effect.")}>
+          Finalize assessment
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (["PENDING_FINALITY", "FINANCEABLE", "FUNDED"].includes(inv.status)
+      && !inv.challenge_open && !isSeller) {
+    cards.push(
+      <ActionCard key="challenge" title="Challenge the record" quiet
+        body={`Disagree with a bond of ${formatGen(inv.challenge_bond_required_atto)} GEN
+          and new evidence. Your items append as version
+          ${inv.evidence_version + 1}; the panel re-judges the whole record.
+          A challenge that changes the verdict or risk returns your bond.`}>
+        <div style={{ display: "grid", gap: 10 }}>
+          <textarea rows={2} value={challengeReason}
+            placeholder="Your grounds (at least 20 characters)"
+            onChange={(e) => setChallengeReason(e.target.value)} />
+          <EvidenceEditor items={challengeItems} onChange={setChallengeItems}
+            min={1} max={4} />
+          <button className="btn btn-danger"
+            disabled={busy || challengeReason.trim().length < 20}
+            onClick={() => void write("challenge",
+              [id, challengeReason.trim(), toItemsJson(challengeItems)],
+              BigInt(inv.challenge_bond_required_atto),
+              P.challengeOpenIs(id, true),
+              "Your challenge is on the record. Anyone may now run the reassessment.")}>
+            Bond {formatGen(inv.challenge_bond_required_atto)} GEN and challenge
+          </button>
+        </div>
+      </ActionCard>,
+    );
+  }
+  if (inv.challenge_open) {
+    cards.push(
+      <ActionCard key="reassess" title="Run the reassessment"
+        body={`A challenge is open against version ${inv.challenged_version};
+          the panel re-judges version ${inv.challenge_new_version}. Execution
+          is permissionless, so a failed round can be retried by anyone.`}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button className="btn" disabled={busy}
+            onClick={() => void write("reassess", [id], 0n,
+              P.challengeOpenIs(id, false),
+              "The reassessment has ruled and the challenge is resolved.")}>
+            Reassess now
+          </button>
+          {now > inv.challenge_filed_epoch + 3600 ? (
+            <button className="btn btn-quiet" disabled={busy}
+              onClick={() => void write("challenge_lapse", [id], 0n,
+                P.challengeOpenIs(id, false),
+                "The challenge lapsed; the snapshot taken at filing is restored.")}>
+              Declare it stale
+            </button>
+          ) : null}
+        </div>
+      </ActionCard>,
+    );
+  }
+  if (inv.status === "REPAID" && !inv.challenge_open) {
+    cards.push(
+      <ActionCard key="prepare" title="Prepare the settlement"
+        body="Computes the deterministic split from state and freezes it.
+          Finality and payment are two different actions.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("prepare_settlement", [id], 0n,
+            P.statusIs(id, ["SETTLEMENT_READY"]),
+            "The split is prepared and frozen.")}>
+          Prepare settlement
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (inv.status === "SETTLEMENT_READY") {
+    cards.push(
+      <ActionCard key="execute" title="Execute the settlement"
+        body="Pays exactly the prepared record. Once, ever.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("execute_settlement", [id], 0n,
+            P.statusIs(id, ["SETTLED"]), "Settled. Balances are claimable.")}>
+          Execute settlement
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (inv.status === "FINANCEABLE" && now > inv.funding_deadline_epoch
+      && !inv.challenge_open) {
+    cards.push(
+      <ActionCard key="expire" title="Mark it expired" quiet
+        body="Nobody funded it by the deadline. Permissionless housekeeping.">
+        <button className="btn btn-quiet" disabled={busy}
+          onClick={() => void write("mark_expired", [id], 0n,
+            P.statusIs(id, ["EXPIRED"]), "Expired.")}>
+          Mark expired
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (inv.status === "FUNDED" && now > inv.due_epoch + 86_400) {
+    cards.push(
+      <ActionCard key="default" title="Mark the default" quiet
+        body="Due date plus grace has passed with no repayment. The record
+          states the loss; the MVP holds no seller collateral to seize, and
+          says so rather than pretending.">
+        <button className="btn btn-danger" disabled={busy}
+          onClick={() => void write("mark_defaulted", [id], 0n,
+            P.statusIs(id, ["DEFAULTED"]), "Recorded as defaulted.")}>
+          Mark defaulted
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (BigInt(claimable) > 0n) {
+    cards.push(
+      <ActionCard key="claim" title="Claim your balance"
+        body={`${formatGen(claimable)} GEN is credited to your address across
+          this contract — advances, settlements, returned bonds.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("claim", [], 0n,
+            P.claimableDrained(me), "Claimed — the transfer rides finalization.")}>
+          Claim {formatGen(claimable)} GEN
+        </button>
+      </ActionCard>,
+    );
+  }
+
+  if (cards.length === 0) {
+    return (
+      <p className="v-body">
+        Nothing for this wallet to do right now — the state advances when
+        other parties act, and this page keeps reading.
+      </p>
+    );
+  }
+  return <div className="grid-2">{cards}</div>;
+}
+
+function ActionCard({
+  title, body, children, quiet = false,
+}: {
+  title: string;
+  body: string;
+  children: React.ReactNode;
+  quiet?: boolean;
+}) {
+  return (
+    <div className="sheet" style={quiet ? { background: "var(--paper)" } : undefined}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 580 }}>
+          {title}
+        </div>
+        <p className="v-body" style={{ margin: 0, fontSize: 13.5 }}>{body}</p>
+        {children}
+      </div>
+    </div>
+  );
+}

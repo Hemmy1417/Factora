@@ -1,0 +1,498 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   FACTORA — the prospectus.
+
+   A financial instrument, printed. Bond-paper canvas, ink and one bank-note
+   green, hairline rules, square corners, letterpress stamps. Depth comes from
+   rules and paper layers, never from shadows. Three voices:
+
+     Fraunces        — the instrument speaks: amounts, questions, headings
+     Public Sans     — the interface speaks: labels, body, controls
+     IBM Plex Mono   — the record speaks: hashes, addresses, figures
+
+   Single deliberate light look: this is print. Colour is rationed — green
+   carries actions and affirmations, the wax red only adverse findings, and
+   the gold leaf is spent on exactly one thing per page.
+   ──────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --paper: #f4f1e9;          /* the desk */
+  --sheet: #fdfcf7;          /* the instrument */
+  --sheet-recessed: #edeade; /* wells, code, technical panels */
+  --ink: #1a1915;
+  --ink-soft: #55524a;
+  --ink-faint: #8b8778;
+  --rule: #d9d3c1;           /* hairlines */
+  --rule-strong: #1a1915;    /* the heavy baseline */
+  --green: #0e5638;          /* bank-note green — actions, affirmed */
+  --green-deep: #093e28;
+  --green-tint: #e3ece2;
+  --wax: #8c2f1b;            /* adverse findings only */
+  --wax-tint: #f3e2dc;
+  --hold: #8a6d1f;           /* pending, windows, review */
+  --hold-tint: #f0e9d2;
+  --leaf: #a8862e;           /* gold leaf — one use per page */
+
+  --serif: var(--font-fraunces), "Fraunces", Georgia, "Times New Roman", serif;
+  --sans: var(--font-public), "Public Sans", "Segoe UI", Arial, sans-serif;
+  --mono: var(--font-plex-mono), "IBM Plex Mono", "Consolas", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  font-feature-settings: "tnum" 0;
+}
+
+a { color: inherit; }
+
+::selection { background: var(--green); color: var(--sheet); }
+
+/* ── type voices ──────────────────────────────────────────────────────────── */
+
+.v-display {
+  font-family: var(--serif);
+  font-weight: 560;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.v-figure {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.01em;
+}
+
+.v-label {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.v-body { color: var(--ink-soft); max-width: 62ch; }
+
+.v-mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.breakable { word-break: break-all; }
+
+/* ── the folio shell ──────────────────────────────────────────────────────── */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.masthead::after {
+  content: "";
+  display: block;
+  height: 3px;
+  border-top: 1px solid var(--rule-strong);
+  margin-top: 2px;              /* the double rule of a printed instrument */
+  background: transparent;
+}
+
+.masthead-row {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.masthead nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 6px 12px;
+  color: var(--ink-soft);
+  border: 1px solid transparent;
+}
+
+.nav-link:hover { color: var(--ink); border-color: var(--rule); }
+
+.nav-link.on {
+  color: var(--green-deep);
+  border-color: var(--green-deep);
+}
+
+.page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 40px 24px 96px;
+}
+
+.footer {
+  border-top: 1px solid var(--rule-strong);
+  padding: 28px 24px 48px;
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+
+/* ── sheets: the paper the content prints on ─────────────────────────────── */
+
+.sheet {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-bottom: 2px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 24px;
+}
+
+.sheet-recessed {
+  background: var(--sheet-recessed);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 16px;
+}
+
+.sheet-ledger { padding: 0; overflow: hidden; }
+
+/* section numerals, prospectus-style */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  border-bottom: 1px solid var(--rule-strong);
+  padding-bottom: 10px;
+  margin: 44px 0 20px;
+}
+
+.section-no {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--leaf);
+  letter-spacing: 0.08em;
+}
+
+.section-head h2 {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 580;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-head .aside { margin-left: auto; }
+
+/* ── the ruled ledger table ───────────────────────────────────────────────── */
+
+.ledger { width: 100%; border-collapse: collapse; }
+
+.ledger th {
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.ledger td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.ledger tr:last-child td { border-bottom: none; }
+
+.ledger tr.rowlink { cursor: pointer; }
+.ledger tr.rowlink:hover td { background: var(--green-tint); }
+
+/* definition rows — the financial-position block */
+.defs { display: grid; gap: 0; }
+
+.def-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px dotted var(--rule);
+}
+
+.def-row:last-child { border-bottom: none; }
+.def-row dt { color: var(--ink-soft); font-size: 13.5px; }
+.def-row dd { margin: 0; text-align: right; }
+
+.def-row.total {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 3px double var(--rule-strong);
+}
+
+/* ── stamps: statuses as letterpress impressions ─────────────────────────── */
+
+.stamp {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.tone-neutral { color: var(--ink-faint); }
+.tone-good { color: var(--green-deep); background: var(--green-tint); }
+.tone-bad { color: var(--wax); background: var(--wax-tint); }
+.tone-hold { color: var(--hold); background: var(--hold-tint); }
+.tone-active { color: var(--green-deep); }
+
+.stamp.tilted { transform: rotate(-2deg); }
+
+/* ── controls ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  appearance: none;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 10px 20px;
+  border-radius: 2px;
+  border: 1px solid var(--green-deep);
+  background: var(--green);
+  color: #f6faf5;
+  cursor: pointer;
+}
+
+.btn:hover { background: var(--green-deep); }
+
+.btn:disabled {
+  background: var(--sheet-recessed);
+  color: var(--ink-faint);
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+.btn-quiet {
+  background: transparent;
+  color: var(--green-deep);
+}
+
+.btn-quiet:hover { background: var(--green-tint); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--wax);
+  border-color: var(--wax);
+}
+
+.btn-danger:hover { background: var(--wax-tint); }
+
+input[type="text"], input[type="number"], input[type="date"], textarea, select {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-bottom: 2px solid var(--ink-soft);
+  border-radius: 2px;
+  padding: 9px 12px;
+  width: 100%;
+}
+
+textarea { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; }
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-bottom-color: var(--green);
+}
+
+.field { display: grid; gap: 6px; }
+.field > label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.field .hint { font-size: 12px; color: var(--ink-faint); }
+.field .problem { font-size: 12.5px; color: var(--wax); }
+
+/* ── the stepper (transaction lifecycle) ─────────────────────────────────── */
+
+.stepper {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.step { color: var(--ink-faint); }
+.step.on { color: var(--hold); }
+.step.done { color: var(--green-deep); }
+.step.fail { color: var(--wax); }
+.step-sep { color: var(--rule); }
+
+.note {
+  border-left: 3px solid var(--rule-strong);
+  padding: 10px 14px;
+  background: var(--sheet);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.note.good { border-left-color: var(--green); background: var(--green-tint); }
+.note.bad { border-left-color: var(--wax); background: var(--wax-tint); }
+.note.hold { border-left-color: var(--hold); background: var(--hold-tint); }
+
+/* ── the evidence graph ───────────────────────────────────────────────────── */
+
+.graph {
+  display: grid;
+  gap: 0;
+}
+
+.graph-pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.pillar {
+  border: 1px solid var(--rule);
+  border-top: 3px solid var(--ink-faint);
+  background: var(--sheet);
+  padding: 14px 16px;
+}
+
+.pillar.supported { border-top-color: var(--green); }
+.pillar.not-supported { border-top-color: var(--wax); }
+.pillar.insufficient { border-top-color: var(--hold); }
+
+.graph-spine {
+  width: 1px;
+  height: 22px;
+  background: var(--rule-strong);
+  margin: 0 auto;
+}
+
+.evidence-node {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  margin-top: -1px;
+}
+
+.evidence-node summary { cursor: pointer; list-style: none; }
+.evidence-node summary::-webkit-details-marker { display: none; }
+
+/* the seal-score dial */
+.seal {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: 2px solid var(--green-deep);
+  outline: 1px solid var(--green-deep);
+  outline-offset: 3px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background:
+    radial-gradient(circle at center, var(--sheet) 58%, var(--green-tint) 59%);
+}
+
+.seal .score {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 560;
+  line-height: 1;
+}
+
+.seal.held { border-color: var(--hold); outline-color: var(--hold); }
+.seal.refused { border-color: var(--wax); outline-color: var(--wax); }
+
+/* ── misc ─────────────────────────────────────────────────────────────────── */
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+.marginalia {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  border-left: 1px solid var(--rule);
+  padding-left: 14px;
+}
+
+.hr-rule { border: none; border-top: 1px solid var(--rule); margin: 20px 0; }
+
+code, .code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--sheet-recessed);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.copy-btn {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  border-radius: 2px;
+}
+
+.copy-btn:hover { border-color: var(--ink-soft); }
+
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .graph-pillars { grid-template-columns: 1fr; }
+  .masthead-row { padding: 12px 16px; gap: 14px; }
+  .page { padding: 24px 16px 72px; }
+}
