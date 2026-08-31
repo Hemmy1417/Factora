@@ -30,9 +30,13 @@ export function AssessmentSheet({
   return (
     <div className="sheet" style={{ display: "grid", gap: 18 }}>
       <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
-        <div className={`seal ${sealClass}`}>
-          <div className="score v-figure">{a.score}</div>
-          <div className="v-label">of 100</div>
+        <div className="seal-wrap">
+          <div className={`seal ${sealClass}`}
+            style={{ "--score": a.score } as React.CSSProperties} />
+          <div className="seal-figure">
+            <div className="score">{a.score}</div>
+            <div className="v-label">of 100</div>
+          </div>
         </div>
         <div style={{ display: "grid", gap: 6, flex: 1, minWidth: 240 }}>
           <div className="v-display" style={{ fontSize: 26 }}>
@@ -69,7 +73,7 @@ export function AssessmentSheet({
           <div className="v-figure" style={{ fontSize: 22, marginTop: 4 }}>
             {a.examined_count} of {a.committed_count} examined
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          <div style={{ fontSize: 12.5, color: "var(--lichen)" }}>
             {a.excluded_count} excluded — every committed item lands in
             exactly one list, enforced as arithmetic.
           </div>
@@ -81,7 +85,7 @@ export function AssessmentSheet({
               ? `${formatBps(a.advance_rate_bps)} advance`
               : "no terms"}
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          <div style={{ fontSize: 12.5, color: "var(--lichen)" }}>
             {a.decision === "FINANCEABLE"
               ? `${formatBps(a.fee_bps)} factoring fee — from the code table on
                  the pinned risk class${a.buyer_acknowledged ? "" :
@@ -94,7 +98,7 @@ export function AssessmentSheet({
           <div className="v-figure" style={{ fontSize: 22, marginTop: 4 }}>
             {a.buyer_acknowledged ? "Countersigned" : "Declared only"}
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          <div style={{ fontSize: 12.5, color: "var(--lichen)" }}>
             {a.buyer_dispute_open
               ? "The buyer's wallet has an open dispute on this record."
               : a.buyer_acknowledged

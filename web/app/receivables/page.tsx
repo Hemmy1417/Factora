@@ -35,8 +35,8 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
               onClick={() => router.push(`/receivables/${v.invoice_id}`)}>
               <td>
                 <Link href={`/receivables/${v.invoice_id}`}
-                  style={{ textDecoration: "none", fontWeight: 600 }}>
-                  <span className="v-mono" style={{ color: "var(--leaf)" }}>
+                  style={{ textDecoration: "none", }}>
+                  <span className="v-mono" style={{ color: "var(--lime)" }}>
                     {v.invoice_id}
                   </span>{" "}
                   {v.reference}
@@ -51,7 +51,7 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
                 {v.buyer_dispute_epoch ? " · disputed" : ""}
               </td>
               <td><StatusStamp status={v.status} /></td>
-              <td style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
+              <td style={{ fontSize: 12.5, color: "var(--lichen)" }}>
                 {formatStamp(v.created_epoch)}
               </td>
             </tr>

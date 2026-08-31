@@ -63,7 +63,7 @@ export function EvidenceEditor({
         return (
           <div key={i} className="sheet" style={{ display: "grid", gap: 10 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <span className="v-mono" style={{ color: "var(--leaf)" }}>
+              <span className="v-mono" style={{ color: "var(--lime)" }}>
                 EV-{String(i + 1).padStart(3, "0")}
               </span>
               <select

@@ -87,7 +87,7 @@ export default function MarketPage() {
               <Link key={v.invoice_id} href={`/receivables/${v.invoice_id}`}
                 className="sheet" style={{ textDecoration: "none", display: "grid", gap: 10 }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                  <span className="v-mono" style={{ color: "var(--leaf)" }}>
+                  <span className="v-mono" style={{ color: "var(--lime)" }}>
                     {v.invoice_id}
                   </span>
                   <span className="v-figure" style={{ fontSize: 24 }}>
@@ -125,7 +125,7 @@ export default function MarketPage() {
                     <dd className="v-figure">{v.score} / 100</dd>
                   </div>
                 </dl>
-                <span className="v-label" style={{ color: "var(--green-deep)" }}>
+                <span className="v-label" style={{ color: "var(--lime)" }}>
                   Open the room → inspect the evidence graph
                 </span>
               </Link>

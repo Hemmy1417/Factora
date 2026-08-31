@@ -1,40 +1,31 @@
 /* ─────────────────────────────────────────────────────────────────────────────
-   FACTORA — the prospectus.
+   FACTORA — bioluminescent laboratory at midnight.
 
-   A financial instrument, printed. Bond-paper canvas, ink and one bank-note
-   green, hairline rules, square corners, letterpress stamps. Depth comes from
-   rules and paper layers, never from shadows. Three voices:
-
-     Fraunces        — the instrument speaks: amounts, questions, headings
-     Public Sans     — the interface speaks: labels, body, controls
-     IBM Plex Mono   — the record speaks: hashes, addresses, figures
-
-   Single deliberate light look: this is print. Colour is rationed — green
-   carries actions and affirmations, the wax red only adverse findings, and
-   the gold leaf is spent on exactly one thing per page.
+   From the Integrated Biosciences reference: a darkroom-laboratory language.
+   Near-black canvas with a cool green undertone, restrained white type, and
+   ONE bioluminescent lime signal that activates only on micro-surfaces —
+   arrow buttons, tag dots, active pills, progress rings. The entire type
+   system runs on a SINGLE WEIGHT of Inter Tight (the Aspekta substitute):
+   hierarchy is size and negative tracking, never boldness. Roboto Mono is
+   the voice of the lab notebook — nav, counters, tags, metadata, buttons.
+   Flat everywhere: hairlines delineate, nothing floats, nothing casts.
    ──────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --paper: #f4f1e9;          /* the desk */
-  --sheet: #fdfcf7;          /* the instrument */
-  --sheet-recessed: #edeade; /* wells, code, technical panels */
-  --ink: #1a1915;
-  --ink-soft: #55524a;
-  --ink-faint: #8b8778;
-  --rule: #d9d3c1;           /* hairlines */
-  --rule-strong: #1a1915;    /* the heavy baseline */
-  --green: #0e5638;          /* bank-note green — actions, affirmed */
-  --green-deep: #093e28;
-  --green-tint: #e3ece2;
-  --wax: #8c2f1b;            /* adverse findings only */
-  --wax-tint: #f3e2dc;
-  --hold: #8a6d1f;           /* pending, windows, review */
-  --hold-tint: #f0e9d2;
-  --leaf: #a8862e;           /* gold leaf — one use per page */
+  --lime: #cef79e;           /* the signal lamp — micro-surfaces only */
+  --ink: #222f30;            /* dark canvas, near-black w/ green undertone */
+  --bone: #f7f7f5;           /* light-band canvas */
+  --paper: #ffffff;          /* cards on light, body text on dark */
+  --graphite: #4d5757;       /* secondary text, dark-surface hairlines */
+  --lichen: #c9cbbe;         /* light-surface hairlines, placeholder meta */
+  --tissue: #e7e8e1;         /* warm alternate card */
+  --void: #000000;           /* footer only */
 
-  --serif: var(--font-fraunces), "Fraunces", Georgia, "Times New Roman", serif;
-  --sans: var(--font-public), "Public Sans", "Segoe UI", Arial, sans-serif;
-  --mono: var(--font-plex-mono), "IBM Plex Mono", "Consolas", monospace;
+  --line-dark: #4d5757;
+  --line-light: #c9cbbe;
+
+  --sans: var(--font-aspekta), "Inter Tight", "Segoe UI", Arial, sans-serif;
+  --mono: var(--font-roboto-mono), "Roboto Mono", "Consolas", monospace;
 }
 
 * { box-sizing: border-box; }
@@ -43,77 +34,75 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.6;
-  font-feature-settings: "tnum" 0;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.3;
+  letter-spacing: -0.001em;
+}
+
+/* single-weight discipline: nothing in this system is bold */
+b, strong, th, h1, h2, h3, h4, button, input, select, textarea, label {
+  font-weight: 400;
 }
 
 a { color: inherit; }
 
-::selection { background: var(--green); color: var(--sheet); }
+::selection { background: var(--lime); color: var(--ink); }
 
-/* ── type voices ──────────────────────────────────────────────────────────── */
+/* ── type voices — size and tracking carve the hierarchy ─────────────────── */
 
 .v-display {
-  font-family: var(--serif);
-  font-weight: 560;
-  letter-spacing: -0.015em;
-  line-height: 1.08;
+  font-family: var(--sans);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .v-figure {
-  font-family: var(--serif);
-  font-weight: 500;
-  font-variant-numeric: lining-nums;
+  font-family: var(--sans);
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.01em;
 }
 
 .v-label {
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--lichen);
 }
 
-.v-body { color: var(--ink-soft); max-width: 62ch; }
+.v-body { color: var(--tissue); max-width: 62ch; }
 
 .v-mono {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .breakable { word-break: break-all; }
 
-/* ── the folio shell ──────────────────────────────────────────────────────── */
+/* ── the shell ────────────────────────────────────────────────────────────── */
 
 .masthead {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: var(--paper);
-  border-bottom: 1px solid var(--rule-strong);
+  background: var(--ink);
+  border-bottom: 1px solid var(--line-dark);
 }
 
-.masthead::after {
-  content: "";
-  display: block;
-  height: 3px;
-  border-top: 1px solid var(--rule-strong);
-  margin-top: 2px;              /* the double rule of a printed instrument */
-  background: transparent;
-}
+.masthead::after { content: none; }
 
 .masthead-row {
-  max-width: 1160px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 14px 24px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -122,17 +111,18 @@ a { color: inherit; }
 .wordmark {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
-  font-family: var(--serif);
-  font-size: 21px;
-  font-weight: 620;
-  letter-spacing: 0.01em;
+  font-family: var(--sans);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--paper);
 }
 
 .masthead nav {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   margin-left: auto;
   align-items: center;
   flex-wrap: wrap;
@@ -140,113 +130,144 @@ a { color: inherit; }
 
 .nav-link {
   text-decoration: none;
+  font-family: var(--mono);
   font-size: 13px;
-  font-weight: 550;
-  padding: 6px 12px;
-  color: var(--ink-soft);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  color: var(--lichen);
   border: 1px solid transparent;
+  border-radius: 12px;
 }
 
-.nav-link:hover { color: var(--ink); border-color: var(--rule); }
+.nav-link:hover { border-color: var(--line-dark); color: var(--paper); }
 
 .nav-link.on {
-  color: var(--green-deep);
-  border-color: var(--green-deep);
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--ink);
 }
 
 .page {
-  max-width: 1160px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 24px 96px;
+  padding: 60px 24px 120px;
 }
 
 .footer {
-  border-top: 1px solid var(--rule-strong);
-  padding: 28px 24px 48px;
-  max-width: 1160px;
+  background: var(--void);
+  border-top: none;
+  padding: 40px 24px 56px;
+  color: var(--lichen);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+
+.footer-row {
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  color: var(--ink-faint);
-  font-size: 12.5px;
 }
 
-/* ── sheets: the paper the content prints on ─────────────────────────────── */
+/* ── surfaces: flat panels, hairline-bound ────────────────────────────────── */
 
 .sheet {
-  background: var(--sheet);
-  border: 1px solid var(--rule);
-  border-bottom: 2px solid var(--rule-strong);
-  border-radius: 2px;
-  padding: 24px;
+  background: var(--ink);
+  border: 1px solid var(--line-dark);
+  border-radius: 16px;
+  padding: 40px;
 }
 
 .sheet-recessed {
-  background: var(--sheet-recessed);
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  padding: 16px;
+  background: transparent;
+  border: 1px solid var(--line-dark);
+  border-radius: 12px;
+  padding: 20px;
 }
 
 .sheet-ledger { padding: 0; overflow: hidden; }
 
-/* section numerals, prospectus-style */
+/* light band — the newsroom flip */
+.band-light {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.band-light .v-body { color: var(--graphite); }
+.band-light .v-label { color: var(--graphite); }
+.band-light .sheet {
+  background: var(--paper);
+  border-color: transparent;
+  border-radius: 20px;
+}
+.band-light .sheet-recessed {
+  background: var(--tissue);
+  border-color: transparent;
+}
+
+/* section counters: the pill voice of the table of contents */
 .section-head {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  border-bottom: 1px solid var(--rule-strong);
-  padding-bottom: 10px;
-  margin: 44px 0 20px;
+  align-items: center;
+  gap: 16px;
+  border-bottom: none;
+  padding: 0;
+  margin: 100px 0 28px;
 }
 
 .section-no {
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--leaf);
-  letter-spacing: 0.08em;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  color: var(--lichen);
+  border: 1px solid var(--line-dark);
+  border-radius: 9999px;
+  padding: 4px 12px;
 }
 
 .section-head h2 {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 580;
+  font-family: var(--sans);
+  font-size: 36px;
+  font-weight: 400;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.006em;
+  line-height: 1.2;
 }
 
 .section-head .aside { margin-left: auto; }
 
-/* ── the ruled ledger table ───────────────────────────────────────────────── */
+/* ── the ledger table ─────────────────────────────────────────────────────── */
 
 .ledger { width: 100%; border-collapse: collapse; }
 
 .ledger th {
   text-align: left;
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  color: var(--ink-faint);
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid var(--rule-strong);
+  color: var(--lichen);
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line-dark);
 }
 
 .ledger td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--rule);
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-dark);
   vertical-align: top;
 }
 
 .ledger tr:last-child td { border-bottom: none; }
 
 .ledger tr.rowlink { cursor: pointer; }
-.ledger tr.rowlink:hover td { background: var(--green-tint); }
+.ledger tr.rowlink:hover td { background: rgba(206, 247, 158, 0.05); }
 
-/* definition rows — the financial-position block */
+/* definition rows */
 .defs { display: grid; gap: 0; }
 
 .def-row {
@@ -254,143 +275,201 @@ a { color: inherit; }
   justify-content: space-between;
   gap: 16px;
   align-items: baseline;
-  padding: 9px 0;
-  border-bottom: 1px dotted var(--rule);
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-dark);
 }
+
+.band-light .def-row { border-bottom-color: var(--line-light); }
 
 .def-row:last-child { border-bottom: none; }
-.def-row dt { color: var(--ink-soft); font-size: 13.5px; }
+.def-row dt { color: var(--tissue); font-size: 15px; }
+.band-light .def-row dt { color: var(--graphite); }
 .def-row dd { margin: 0; text-align: right; }
 
-.def-row.total {
-  border-top: 1px solid var(--rule-strong);
-  border-bottom: 3px double var(--rule-strong);
-}
+.def-row.total { border-top: 1px solid var(--paper); }
 
-/* ── stamps: statuses as letterpress impressions ─────────────────────────── */
+/* ── stamps → lab tags: dot + mono label, colour carried by the DOT ──────── */
 
 .stamp {
-  display: inline-block;
-  font-family: var(--sans);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
-  padding: 3px 9px;
-  border: 1.5px solid currentColor;
-  border-radius: 2px;
+  padding: 3px 12px;
+  border: 1px solid var(--line-dark);
+  border-radius: 9999px;
   white-space: nowrap;
+  color: var(--lichen);
+  background: transparent;
 }
 
-.tone-neutral { color: var(--ink-faint); }
-.tone-good { color: var(--green-deep); background: var(--green-tint); }
-.tone-bad { color: var(--wax); background: var(--wax-tint); }
-.tone-hold { color: var(--hold); background: var(--hold-tint); }
-.tone-active { color: var(--green-deep); }
+.band-light .stamp { border-color: var(--line-light); color: var(--graphite); }
 
-.stamp.tilted { transform: rotate(-2deg); }
+.stamp::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: transparent;
+  border: 1px solid var(--graphite);
+}
 
-/* ── controls ─────────────────────────────────────────────────────────────── */
+/* the signal lamp: lime dot = affirmed / active / forward */
+.tone-good::before, .tone-active::before {
+  background: var(--lime);
+  border-color: var(--lime);
+}
+
+/* hold = hollow lime ring; adverse = filled graphite; neutral = hollow */
+.tone-hold::before { border-color: var(--lime); }
+.tone-bad::before { background: var(--graphite); border-color: var(--graphite); }
+.tone-bad { color: var(--paper); border-color: var(--graphite); }
+
+.stamp.tilted { transform: none; }
+
+/* ── controls — restrained, opposite-surface, radius 8 ───────────────────── */
 
 .btn {
   appearance: none;
-  font-family: var(--sans);
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 10px 20px;
-  border-radius: 2px;
-  border: 1px solid var(--green-deep);
-  background: var(--green);
-  color: #f6faf5;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.008em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--paper);
+  background: var(--paper);
+  color: var(--ink);
   cursor: pointer;
 }
 
-.btn:hover { background: var(--green-deep); }
+.btn:hover { background: var(--lichen); border-color: var(--lichen); }
+
+.band-light .btn { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 
 .btn:disabled {
-  background: var(--sheet-recessed);
-  color: var(--ink-faint);
-  border-color: var(--rule);
+  background: transparent;
+  color: var(--lichen);
+  border-color: var(--line-dark);
   cursor: not-allowed;
+  opacity: 0.75;
 }
 
 .btn-quiet {
   background: transparent;
-  color: var(--green-deep);
+  color: var(--paper);
+  border-color: var(--graphite);
 }
 
-.btn-quiet:hover { background: var(--green-tint); }
+.btn-quiet:hover { background: transparent; border-color: var(--paper); color: var(--paper); }
+
+.band-light .btn-quiet { color: var(--ink); border-color: var(--graphite); background: transparent; }
 
 .btn-danger {
   background: transparent;
-  color: var(--wax);
-  border-color: var(--wax);
+  color: var(--lichen);
+  border-color: var(--graphite);
 }
 
-.btn-danger:hover { background: var(--wax-tint); }
+.btn-danger:hover { border-color: var(--paper); color: var(--paper); background: transparent; }
+
+/* the arrow CTA — the one place the accent fills a shape */
+.arrow-cta {
+  display: inline-grid;
+  place-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--lime);
+  color: var(--ink);
+  border: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 16px;
+}
 
 input[type="text"], input[type="number"], input[type="date"], textarea, select {
-  font-family: var(--sans);
+  font-family: var(--mono);
   font-size: 14px;
-  color: var(--ink);
-  background: var(--sheet);
-  border: 1px solid var(--rule);
-  border-bottom: 2px solid var(--ink-soft);
-  border-radius: 2px;
-  padding: 9px 12px;
+  font-weight: 400;
+  letter-spacing: -0.008em;
+  color: var(--paper);
+  background: transparent;
+  border: 1px solid var(--line-dark);
+  border-radius: 8px;
+  padding: 10px 14px;
   width: 100%;
 }
 
-textarea { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; }
+textarea { line-height: 1.5; }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-bottom-color: var(--green);
+  border-color: var(--lime);
 }
 
-.field { display: grid; gap: 6px; }
-.field > label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
-.field .hint { font-size: 12px; color: var(--ink-faint); }
-.field .problem { font-size: 12.5px; color: var(--wax); }
+select option { background: var(--ink); color: var(--paper); }
 
-/* ── the stepper (transaction lifecycle) ─────────────────────────────────── */
+.field { display: grid; gap: 6px; }
+.field > label {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--lichen);
+}
+.field .hint { font-size: 13px; color: var(--lichen); }
+.field .problem, .problem { font-size: 13px; color: var(--lime); font-family: var(--mono); }
+
+/* ── the stepper ──────────────────────────────────────────────────────────── */
 
 .stepper {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
 }
 
-.step { color: var(--ink-faint); }
-.step.on { color: var(--hold); }
-.step.done { color: var(--green-deep); }
-.step.fail { color: var(--wax); }
-.step-sep { color: var(--rule); }
+.step { color: var(--lichen); display: inline-flex; align-items: center; gap: 6px; }
+.step::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  border: 1px solid var(--graphite);
+}
+.step.on { color: var(--paper); }
+.step.on::before { border-color: var(--lime); }
+.step.done { color: var(--lichen); }
+.step.done::before { background: var(--lime); border-color: var(--lime); }
+.step.fail { color: var(--paper); }
+.step.fail::before { background: var(--graphite); border-color: var(--graphite); }
+.step-sep { color: var(--line-dark); }
 
 .note {
-  border-left: 3px solid var(--rule-strong);
-  padding: 10px 14px;
-  background: var(--sheet);
-  font-size: 13px;
-  color: var(--ink-soft);
+  border: 1px solid var(--line-dark);
+  border-radius: 12px;
+  padding: 14px 18px;
+  background: transparent;
+  font-size: 15px;
+  color: var(--tissue);
 }
 
-.note.good { border-left-color: var(--green); background: var(--green-tint); }
-.note.bad { border-left-color: var(--wax); background: var(--wax-tint); }
-.note.hold { border-left-color: var(--hold); background: var(--hold-tint); }
+.note.good { border-color: var(--lime); color: var(--paper); }
+.note.bad { border-color: var(--graphite); color: var(--paper); }
+.note.hold { border-color: var(--line-dark); color: var(--lichen); }
 
 /* ── the evidence graph ───────────────────────────────────────────────────── */
 
-.graph {
-  display: grid;
-  gap: 0;
-}
+.graph { display: grid; gap: 0; }
 
 .graph-pillars {
   display: grid;
@@ -399,20 +478,28 @@ input:focus, textarea:focus, select:focus {
 }
 
 .pillar {
-  border: 1px solid var(--rule);
-  border-top: 3px solid var(--ink-faint);
-  background: var(--sheet);
-  padding: 14px 16px;
+  border: 1px solid var(--line-dark);
+  border-radius: 12px;
+  background: transparent;
+  padding: 20px;
+  display: grid;
+  gap: 6px;
 }
 
-.pillar.supported { border-top-color: var(--green); }
-.pillar.not-supported { border-top-color: var(--wax); }
-.pillar.insufficient { border-top-color: var(--hold); }
+.pillar::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  border: 1px solid var(--graphite);
+}
+
+.pillar.supported::before { background: var(--lime); border-color: var(--lime); }
+.pillar.not-supported::before { background: var(--graphite); border-color: var(--graphite); }
+.pillar.insufficient::before { border-color: var(--lime); }
 
 .graph-spine {
   width: 1px;
-  height: 22px;
-  background: var(--rule-strong);
+  height: 24px;
+  background: var(--line-dark);
   margin: 0 auto;
 }
 
@@ -421,39 +508,52 @@ input:focus, textarea:focus, select:focus {
   grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: baseline;
-  padding: 10px 14px;
-  border: 1px solid var(--rule);
-  background: var(--sheet);
-  margin-top: -1px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line-dark);
 }
+
+.evidence-node:last-child { border-bottom: none; }
 
 .evidence-node summary { cursor: pointer; list-style: none; }
 .evidence-node summary::-webkit-details-marker { display: none; }
 
-/* the seal-score dial */
+/* the score — a flat instrument reading with a lime progress ring */
 .seal {
   width: 128px;
   height: 128px;
   border-radius: 50%;
-  border: 2px solid var(--green-deep);
-  outline: 1px solid var(--green-deep);
-  outline-offset: 3px;
+  border: none;
+  outline: none;
   display: grid;
   place-content: center;
   text-align: center;
   background:
-    radial-gradient(circle at center, var(--sheet) 58%, var(--green-tint) 59%);
+    conic-gradient(var(--lime) calc(var(--score, 0) * 1%), var(--line-dark) 0);
+  -webkit-mask: radial-gradient(circle at center, transparent 56px, black 57px);
+  mask: radial-gradient(circle at center, transparent 56px, black 57px);
+  position: relative;
 }
 
-.seal .score {
-  font-family: var(--serif);
-  font-size: 40px;
-  font-weight: 560;
+.seal-wrap { position: relative; width: 128px; height: 128px; flex: none; }
+
+.seal-figure {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.seal-figure .score {
+  font-family: var(--sans);
+  font-size: 42px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   line-height: 1;
 }
 
-.seal.held { border-color: var(--hold); outline-color: var(--hold); }
-.seal.refused { border-color: var(--wax); outline-color: var(--wax); }
+.seal.held { background: conic-gradient(var(--graphite) calc(var(--score, 0) * 1%), var(--line-dark) 0); }
+.seal.refused { background: conic-gradient(var(--graphite) calc(var(--score, 0) * 1%), var(--line-dark) 0); }
 
 /* ── misc ─────────────────────────────────────────────────────────────────── */
 
@@ -461,38 +561,40 @@ input:focus, textarea:focus, select:focus {
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 
 .marginalia {
-  font-size: 12.5px;
-  color: var(--ink-faint);
-  border-left: 1px solid var(--rule);
-  padding-left: 14px;
+  font-size: 14px;
+  color: var(--lichen);
+  border-left: 1px solid var(--line-dark);
+  padding-left: 16px;
 }
 
-.hr-rule { border: none; border-top: 1px solid var(--rule); margin: 20px 0; }
+.hr-rule { border: none; border-top: 1px solid var(--line-dark); margin: 24px 0; }
 
 code, .code {
   font-family: var(--mono);
-  font-size: 12px;
-  background: var(--sheet-recessed);
-  padding: 1px 5px;
-  border-radius: 2px;
+  font-size: 13px;
+  border: 1px solid var(--line-dark);
+  padding: 1px 6px;
+  border-radius: 6px;
 }
 
 .copy-btn {
   appearance: none;
-  border: 1px solid var(--rule);
-  background: var(--sheet);
+  border: 1px solid var(--line-dark);
+  background: transparent;
   font-family: var(--mono);
-  font-size: 10.5px;
-  padding: 2px 8px;
+  font-size: 11px;
+  letter-spacing: -0.02em;
+  padding: 2px 10px;
   cursor: pointer;
-  color: var(--ink-soft);
-  border-radius: 2px;
+  color: var(--lichen);
+  border-radius: 9999px;
 }
 
-.copy-btn:hover { border-color: var(--ink-soft); }
+.copy-btn:hover { border-color: var(--lime); color: var(--paper); }
 
 @media (max-width: 900px) {
   .grid-2, .grid-3, .graph-pillars { grid-template-columns: 1fr; }
-  .masthead-row { padding: 12px 16px; gap: 14px; }
-  .page { padding: 24px 16px 72px; }
+  .masthead-row { padding: 14px 16px; gap: 14px; }
+  .page { padding: 32px 16px 80px; }
+  .sheet { padding: 24px; }
 }

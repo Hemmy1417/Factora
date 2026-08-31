@@ -79,8 +79,8 @@ export function EvidenceGraph({
             <details key={it.id} className="evidence-node" style={{ display: "block" }}>
               <summary>
                 <span style={{ display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
-                  <span className="v-mono" style={{ color: "var(--leaf)" }}>{it.id}</span>
-                  <span style={{ fontWeight: 600 }}>{it.label}</span>
+                  <span className="v-mono" style={{ color: "var(--lime)" }}>{it.id}</span>
+                  <span style={{ }}>{it.label}</span>
                   <span className="v-label">{EVIDENCE_TYPE_LABEL[it.type] ?? it.type}</span>
                   <span style={{ marginLeft: "auto" }}>
                     {assessment ? (
@@ -122,7 +122,7 @@ export function EvidenceGraph({
                     ? row.excerpt
                     : it.content || "[fetched at judgment time]"}
                 </div>
-                <div className="v-mono" style={{ color: "var(--ink-faint)" }}>
+                <div className="v-mono" style={{ color: "var(--lichen)" }}>
                   {row
                     ? `judged bytes sha256 ${row.digest}`
                     : `committed sha256 ${it.content_hash}`}

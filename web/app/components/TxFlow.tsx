@@ -46,13 +46,13 @@ export function TxFlow({ p }: { p: TxProgress }) {
       </div>
 
       {p.detail ? (
-        <p className="t-caption" style={{ color: terminal ? "var(--no)" : "var(--ash)" }}>
+        <p className="t-caption" style={{ color: terminal ? "var(--paper)" : "var(--lichen)" }}>
           {p.detail}
         </p>
       ) : null}
 
       {p.hash ? (
-        <p className="mono breakable" style={{ color: "var(--fog)" }}>
+        <p className="mono breakable" style={{ color: "var(--lichen)" }}>
           {p.hash}
         </p>
       ) : null}

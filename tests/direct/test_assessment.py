@@ -89,18 +89,24 @@ def test_no_buyer_ack_caps_the_advance(module, c):
 
 
 def test_medium_risk_prices_lower(module, c):
-    iid = assessed(module, c, answer=panel_answer(risk="MEDIUM", score=68))
+    """A single INSUFFICIENT pillar derives MEDIUM risk - still financeable,
+    priced lower by the table."""
+    iid = assessed(module, c, answer=panel_answer(
+        buyer_finding="INSUFFICIENT", score=68))
     advance(1801)
     c.finalize_assessment(iid)
     inv = json.loads(c.get_invoice(iid))
+    assert inv["decision"] == "FINANCEABLE"
+    assert inv["risk"] == "MEDIUM"
     assert inv["advance_rate_bps"] == 7000
     assert inv["fee_bps"] == 500
 
 
 def test_not_financeable_promotes_to_a_closed_state_with_no_terms(module, c):
+    """Any NOT_SUPPORTED pillar derives NOT_FINANCEABLE / HIGH - the model
+    is never asked for the decision at all."""
     iid = assessed(module, c, answer=panel_answer(
-        decision="NOT_FINANCEABLE", risk="HIGH", score=18,
-        transaction_finding="NOT_SUPPORTED"))
+        score=18, transaction_finding="NOT_SUPPORTED"))
     advance(1801)
     c.finalize_assessment(iid)
     inv = json.loads(c.get_invoice(iid))
@@ -109,9 +115,10 @@ def test_not_financeable_promotes_to_a_closed_state_with_no_terms(module, c):
 
 
 def test_review_required_lands_in_review(module, c):
+    """The transaction pillar merely INSUFFICIENT derives REVIEW_REQUIRED:
+    an obligation the record cannot support is not financeable-today."""
     iid = assessed(module, c, answer=panel_answer(
-        decision="REVIEW_REQUIRED", risk="MEDIUM", score=55,
-        buyer_finding="INSUFFICIENT"))
+        score=55, transaction_finding="INSUFFICIENT"))
     advance(1801)
     c.finalize_assessment(iid)
     assert json.loads(c.get_invoice(iid))["status"] == "REVIEW"
@@ -131,11 +138,27 @@ def test_an_open_buyer_dispute_caps_the_decision_at_review(module, c):
     assert "BUYER_DISPUTE_OPEN" in d["conflicts"]
 
 
-def test_high_risk_cannot_be_financeable(module, c):
+def test_two_hard_conflicts_derive_review_and_high(module, c):
+    """Hard conflicts steer the derivation: two of them make the record
+    HIGH risk and force review, whatever the pillars said."""
     iid = committed(module, c)
-    panel_says(panel_answer(risk="HIGH", score=80))
+    panel_says(panel_answer(score=80, conflicts=[
+        "AMOUNT_MISMATCH", "DELIVERY_CONTRADICTED"]))
     _request(module, c, iid)
-    assert json.loads(c.get_assessment(iid, 1))["decision"] == "REVIEW_REQUIRED"
+    d = json.loads(c.get_assessment(iid, 1))
+    assert d["decision"] == "REVIEW_REQUIRED"
+    assert d["risk"] == "HIGH"
+
+
+def test_one_hard_conflict_prices_medium(module, c):
+    """A single hard conflict is financeable-with-caution: MEDIUM risk from
+    the derivation, priced by the table."""
+    iid = committed(module, c)
+    panel_says(panel_answer(conflicts=["AMOUNT_MISMATCH"], score=70))
+    _request(module, c, iid)
+    d = json.loads(c.get_assessment(iid, 1))
+    assert d["decision"] == "FINANCEABLE"
+    assert d["risk"] == "MEDIUM"
 
 
 def test_a_record_with_nothing_examined_supports_no_verdict(module, c):
@@ -199,18 +222,17 @@ def test_counts_land_in_the_dossier(module, c):
 
 # ── schema walls ─────────────────────────────────────────────────────────────
 
-def test_decision_outside_the_enum_rotates(module, c):
+def test_the_model_cannot_dictate_the_decision(module, c):
+    """A decision or risk field in the answer is dead weight: the derivation
+    reads only the pillars and conflicts. A model claiming FINANCEABLE over
+    a NOT_SUPPORTED pillar gets NOT_FINANCEABLE recorded."""
     iid = committed(module, c)
-    panel_says(panel_answer(decision="DEFINITELY"))
-    with pytest.raises(err(module), match="LLM_ERROR"):
-        _request(module, c, iid)
-
-
-def test_risk_outside_the_enum_rotates(module, c):
-    iid = committed(module, c)
-    panel_says(panel_answer(risk="SPICY"))
-    with pytest.raises(err(module), match="LLM_ERROR"):
-        _request(module, c, iid)
+    panel_says(panel_answer(transaction_finding="NOT_SUPPORTED",
+                            decision="FINANCEABLE", risk="LOW"))
+    _request(module, c, iid)
+    d = json.loads(c.get_assessment(iid, 1))
+    assert d["decision"] == "NOT_FINANCEABLE"
+    assert d["risk"] == "HIGH"
 
 
 def test_a_nonsense_score_rotates(module, c):
@@ -236,24 +258,34 @@ def test_fenced_reply_is_still_parsed(module, c):
 
 # ── the validator refuses ────────────────────────────────────────────────────
 
-def test_validators_must_agree_on_the_decision(module, c):
+def test_validators_must_agree_on_the_derived_decision(module, c):
+    """Both readings derive MEDIUM risk — one from an insufficient buyer
+    pillar, the other from an insufficient transaction pillar — but only
+    the second forces review. Every finding is within tolerance and the
+    risks match, so the DECISION comparison alone must refuse."""
     iid = committed(module, c)
-    panel_sequence(panel_answer(), panel_answer(decision="NOT_FINANCEABLE",
-                                                risk="LOW"))
+    panel_sequence(panel_answer(buyer_finding="INSUFFICIENT"),
+                   panel_answer(transaction_finding="INSUFFICIENT"))
     with pytest.raises(err(module), match="did not agree"):
         _request(module, c, iid)
 
 
-def test_validators_must_agree_on_risk(module, c):
-    iid = committed(module, c)
-    panel_sequence(panel_answer(), panel_answer(risk="MEDIUM"))
-    with pytest.raises(err(module), match="did not agree"):
-        _request(module, c, iid)
-
-
-def test_validators_must_agree_on_the_findings(module, c):
+def test_validators_must_agree_on_derived_risk(module, c):
+    """buyer SUPPORTED vs INSUFFICIENT is within the finding tolerance and
+    leaves both readings FINANCEABLE - but LOW vs MEDIUM prices differently,
+    so the derived risk comparison refuses."""
     iid = committed(module, c)
     panel_sequence(panel_answer(), panel_answer(buyer_finding="INSUFFICIENT"))
+    with pytest.raises(err(module), match="did not agree"):
+        _request(module, c, iid)
+
+
+def test_a_two_step_finding_swing_never_settles(module, c):
+    """SUPPORTED vs NOT_SUPPORTED on the same pillar is not two readings of
+    one record - it is two records. The round refuses (the derived decision
+    catches it first; the finding ladder stands behind as depth)."""
+    iid = committed(module, c)
+    panel_sequence(panel_answer(), panel_answer(buyer_finding="NOT_SUPPORTED"))
     with pytest.raises(err(module), match="did not agree"):
         _request(module, c, iid)
 
@@ -266,26 +298,40 @@ def test_validators_must_agree_on_the_examined_set(module, c):
         _request(module, c, iid)
 
 
-def test_validators_must_agree_on_the_score_bucket(module, c):
+def test_a_two_bucket_score_swing_never_settles(module, c):
     iid = committed(module, c)
-    panel_sequence(panel_answer(score=91), panel_answer(score=78))
+    panel_sequence(panel_answer(score=91), panel_answer(score=71))
     with pytest.raises(err(module), match="did not agree"):
         _request(module, c, iid)
 
 
-def test_score_inside_one_bucket_agrees(module, c):
+def test_adjacent_score_buckets_agree(module, c):
+    """91 vs 85 is honest disagreement about the same record; the leader's
+    figure is recorded and the bucket tolerance absorbs the step."""
     iid = committed(module, c)
-    panel_sequence(panel_answer(score=91), panel_answer(score=95))
+    panel_sequence(panel_answer(score=91), panel_answer(score=85))
     _request(module, c, iid)
     assert json.loads(c.get_assessment(iid, 1))["score"] == 91
 
 
-def test_validators_must_agree_on_conflict_codes(module, c):
+def test_validators_must_agree_on_hard_conflicts(module, c):
+    """Different hard conflicts, same count: risk derives MEDIUM on both
+    sides, so only the hard-conflict set comparison can catch it."""
     iid = committed(module, c)
-    panel_sequence(panel_answer(),
-                   panel_answer(conflicts=["AMOUNT_MISMATCH"]))
+    panel_sequence(panel_answer(conflicts=["AMOUNT_MISMATCH"]),
+                   panel_answer(conflicts=["PARTY_MISMATCH"]))
     with pytest.raises(err(module), match="did not agree"):
         _request(module, c, iid)
+
+
+def test_soft_conflicts_stay_free(module, c):
+    """DATE_INCONSISTENT informs the reader without steering money, so a
+    validator that also noticed it does not break consensus."""
+    iid = committed(module, c)
+    panel_sequence(panel_answer(),
+                   panel_answer(conflicts=["DATE_INCONSISTENT"]))
+    _request(module, c, iid)
+    assert json.loads(c.get_assessment(iid, 1))["decision"] == "FINANCEABLE"
 
 
 def test_a_validator_that_cannot_reach_a_page_the_leader_reached_disagrees(module, c):

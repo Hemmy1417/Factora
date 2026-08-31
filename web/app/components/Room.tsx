@@ -14,7 +14,7 @@ import type { Assessment, Invoice, Manifest } from "@/lib/types";
 import {
   CONTRACT_ADDRESS, formatBps, formatGen, formatSpan, formatStamp,
 } from "@/lib/config";
-import { sameAddress } from "@/lib/chain";
+import { sameAddress, truncAddr } from "@/lib/chain";
 import { useWallet } from "@/lib/wallet";
 import { inFlight, writeAndConfirm, type TxProgress } from "@/lib/tx";
 import * as P from "@/lib/predicates";
@@ -139,7 +139,7 @@ export function Room({ id }: { id: string }) {
       {/* ── the instrument header ─────────────────────────────────────── */}
       <div className="sheet" style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap" }}>
-          <span className="v-mono" style={{ color: "var(--leaf)" }}>{inv.invoice_id}</span>
+          <span className="v-mono" style={{ color: "var(--lime)" }}>{inv.invoice_id}</span>
           <h1 className="v-display" style={{ fontSize: 30 }}>
             {formatGen(inv.amount_atto)} GEN receivable
           </h1>
@@ -150,11 +150,11 @@ export function Room({ id }: { id: string }) {
         <div className="grid-3">
           <div>
             <div className="v-label">Seller</div>
-            <div className="v-mono breakable">{inv.seller}</div>
+            <div className="v-mono">{truncAddr(inv.seller)}</div>
           </div>
           <div>
             <div className="v-label">Buyer</div>
-            <div className="v-mono breakable">{inv.buyer}</div>
+            <div className="v-mono">{truncAddr(inv.buyer)}</div>
             <div style={{ marginTop: 4 }}>
               {inv.buyer_ack_epoch ? (
                 <span className="stamp tone-good">countersigned on-chain</span>
@@ -651,7 +651,7 @@ function ActionCard({
   return (
     <div className="sheet" style={quiet ? { background: "var(--paper)" } : undefined}>
       <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 580 }}>
+        <div style={{ fontSize: 18, }}>
           {title}
         </div>
         <p className="v-body" style={{ margin: 0, fontSize: 13.5 }}>{body}</p>

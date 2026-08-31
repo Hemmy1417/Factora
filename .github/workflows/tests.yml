@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        run: pip install pytest genvm-linter
+      - name: direct suite
+        run: python -m pytest tests/direct -q
+      - name: genvm-lint
+        run: |
+          genvm-lint download
+          genvm-lint check contracts/factora.py --json
+      - name: mutation sweep
+        run: python scripts/mutate.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: install
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: unit tests
+        run: npm test
+      - name: build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_CONTRACT_ADDRESS: "0xE2B4A382b040619779286fa808138A423B10C88a"

@@ -1,19 +1,23 @@
 import Link from "next/link";
 
-/** The cover page of the prospectus. */
+/** The cover: a dark laboratory band, one architectural headline. */
 export default function Landing() {
   return (
     <div>
-      <div style={{ maxWidth: 780, margin: "24px auto 0", textAlign: "center" }}>
-        <div className="v-label" style={{ color: "var(--leaf)" }}>
-          Receivables finance · GenLayer StudioNet
-        </div>
-        <h1 className="v-display" style={{ fontSize: 52, marginTop: 14 }}>
-          An invoice is worth what its
-          <em style={{ fontStyle: "italic" }}> evidence </em>
-          can prove.
+      <div style={{ margin: "40px 0 0" }}>
+        <span className="section-no" style={{ color: "var(--lime)", borderColor: "var(--graphite)" }}>
+          RECEIVABLES FINANCE · GENLAYER STUDIONET
+        </span>
+        <h1 className="v-display" style={{
+          fontSize: "clamp(46px, 7.6vw, 111px)",
+          letterSpacing: "-0.02em",
+          lineHeight: 1.0,
+          marginTop: 40,
+          maxWidth: 1000,
+        }}>
+          An invoice is worth what its evidence can prove.
         </h1>
-        <p className="v-body" style={{ margin: "18px auto 0" }}>
+        <p className="v-body" style={{ margin: "48px 0 0", fontSize: 19 }}>
           A business is owed money and needs it now. A capital provider will
           advance it — if the obligation is real. That fact lives in
           fragmented, unstructured evidence no price feed can settle. Factora
@@ -21,7 +25,7 @@ export default function Landing() {
           panel that judges it under consensus, and lets deterministic
           contract code — never the model — move every atto of the money.
         </p>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 26 }}>
+        <div style={{ display: "flex", gap: 12, marginTop: 40, alignItems: "center" }}>
           <Link href="/create" className="btn" style={{ textDecoration: "none" }}>
             Register a receivable
           </Link>
@@ -97,6 +101,7 @@ export default function Landing() {
         <span className="section-no">03</span>
         <h2>What the panel is told about trust</h2>
       </div>
+      <div className="band-light" style={{ borderRadius: 40, padding: 40 }}>
       <div className="grid-2">
         <div className="sheet">
           <div className="stamp tone-good">contract-verified</div>
@@ -117,6 +122,7 @@ export default function Landing() {
             the panel thinks of it.
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

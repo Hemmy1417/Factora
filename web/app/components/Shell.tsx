@@ -32,9 +32,9 @@ function Mark() {
           ))}
         </mask>
       </defs>
-      <rect width="64" height="64" fill="var(--green)" mask="url(#ser-m)" />
-      <rect x="9" y="9" width="46" height="46" fill="none" stroke="var(--paper)" strokeWidth="1.5" />
-      <path d="M 22 18 L 44 18 L 44 24 L 29 24 L 29 30 L 40 30 L 40 36 L 29 36 L 29 46 L 22 46 Z" fill="var(--paper)" />
+      <rect width="64" height="64" fill="var(--lime)" mask="url(#ser-m)" />
+      <rect x="9" y="9" width="46" height="46" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
+      <path d="M 22 18 L 44 18 L 44 24 L 29 24 L 29 30 L 40 30 L 40 36 L 29 36 L 29 46 L 22 46 Z" fill="var(--ink)" />
     </svg>
   );
 }
@@ -65,12 +65,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="page">{children}</main>
       <footer className="footer">
-        <span>
-          Factora — receivables judged financeable on GenLayer StudioNet.
-        </span>
-        <span className="v-mono">
-          evidence committed · judgment under consensus · settlement by arithmetic
-        </span>
+        <div className="footer-row">
+          <span>FACTORA — RECEIVABLES JUDGED FINANCEABLE · GENLAYER STUDIONET</span>
+          <span>EVIDENCE COMMITTED · JUDGMENT UNDER CONSENSUS · SETTLEMENT BY ARITHMETIC</span>
+        </div>
       </footer>
     </WalletProvider>
   );
