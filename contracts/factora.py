@@ -1,6 +1,6 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
-# v0.1.1
+# v0.1.2
 #
 # FACTORA — invoice factoring where the financeability decision is a JUDGMENT:
 # a GenLayer validator panel reads the committed evidence behind a real-world
@@ -325,6 +325,10 @@ class Invoice:
     defaulted_epoch: u256
     cancelled_epoch: u256
     expired_epoch: u256
+    # appended for v0.1.2 (layout rule: new fields go at the end): a buyer
+    # can withdraw a dispute they consider resolved — without this, one
+    # dispute made REVIEW a hold state with no honest exit
+    buyer_dispute_withdrawn_epoch: u256
 
 
 class Factora(gl.Contract):
@@ -559,6 +563,7 @@ class Factora(gl.Contract):
             challenge_snapshot="",
             settlement="", settled_epoch=u256(0), defaulted_epoch=u256(0),
             cancelled_epoch=u256(0), expired_epoch=u256(0),
+            buyer_dispute_withdrawn_epoch=u256(0),
         )
         self.identity_registry[identity] = invoice_id
         self.invoice_ids.append(invoice_id)
@@ -672,23 +677,109 @@ class Factora(gl.Contract):
         inv.buyer_ack_epoch = u256(self._require_clock())
         return "acknowledged"
 
+    def _dispute_open(self, inv: Invoice) -> bool:
+        """A dispute counts while filed and not withdrawn. Withdrawal keeps
+        the history — both epochs stay on the record and reach the panel —
+        but stops the dispute from gating money."""
+        return (int(inv.buyer_dispute_epoch) != 0
+                and int(inv.buyer_dispute_withdrawn_epoch) == 0)
+
+    def _dispute_invalidates(self, inv: Invoice) -> None:
+        """THE OBLIGOR'S REPUDIATION OUTRANKS A VERDICT THAT NEVER READ IT.
+
+        A dispute that lands AFTER the panel judged means the record the
+        verdict rests on is no longer the record: the one party whose
+        payment everything depends on has contradicted it, in a message the
+        seller cannot forge. So the verdict loses its authority the moment
+        the dispute is filed — a pending verdict loses its path to
+        promotion, effective terms are struck, and the way back runs
+        through a judgment that has READ the dispute (a new evidence
+        version, or a bonded challenge). Nothing here erases history: the
+        dossier stays in the assessments record; only its EFFECT is gone.
+
+        Under an open challenge the pending fields belong to the challenge
+        machinery and the reassessment round will read the dispute itself,
+        so this helper leaves them alone — challenge_lapse() re-applies it
+        after any snapshot restore, which also closes the resurrection
+        hole where a lapse could restore terms a dispute had struck.
+
+        A funded receivable cannot unwind money already moved: it is
+        flagged for review, and the dispute is already the loudest row in
+        any later reassessment."""
+        if not self._dispute_open(inv):
+            return
+        if inv.challenge_open == "yes":
+            return
+        if inv.status == "PENDING_FINALITY":
+            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))
+            if not seen:
+                inv.pending_version = u256(0)
+                inv.pending_until_epoch = u256(0)
+                inv.status = "REVIEW"
+                inv.decision = "REVIEW_REQUIRED"
+                self._strike_terms(inv)
+        elif inv.status == "FINANCEABLE":
+            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))
+            if not seen:
+                inv.status = "REVIEW"
+                inv.decision = "REVIEW_REQUIRED"
+                self._strike_terms(inv)
+        elif inv.status in ("FUNDED", "REPAID"):
+            inv.monitoring = "REVIEW_REQUIRED"
+
+    def _dossier_saw_dispute(self, inv: Invoice, version: int) -> bool:
+        raw = self.assessments.get(f"{inv.invoice_id}|{version}")
+        if raw is None:
+            return False
+        return bool(json.loads(raw).get("buyer_dispute_open", False))
+
+    def _strike_terms(self, inv: Invoice) -> None:
+        inv.advance_rate_bps = u256(0)
+        inv.fee_bps = u256(0)
+        inv.advance_atto = u256(0)
+
     @gl.public.write
     def file_buyer_dispute(self, invoice_id: str, text: str) -> str:
         """The buyer's wallet disputes the obligation on-chain. Recorded as
-        contract-verified adverse evidence; any assessment run while it is
-        open cannot conclude FINANCEABLE (coerced in the judged block)."""
+        contract-verified adverse evidence: any assessment run while it is
+        open cannot conclude FINANCEABLE (coerced in the judged block), and
+        a dispute filed AFTER a judgment strikes that judgment's effect —
+        pending or effective terms are invalidated and finalization and
+        funding stay blocked until a reassessment reads the dispute."""
         inv = self._get(invoice_id)
         if self._sender() != inv.buyer:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} only the named buyer wallet can dispute")
         if inv.status in ("SETTLED", "CANCELLED", "EXPIRED"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to dispute in {inv.status}")
+        if self._dispute_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} a dispute is already open")
         text = str(text).strip()
         if not (10 <= len(text) <= MAX_DISPUTE_TEXT_CHARS):
             raise gl.vm.UserError(
                 f"{ERROR_EXPECTED} dispute text must be 10-{MAX_DISPUTE_TEXT_CHARS} characters")
         inv.buyer_dispute_epoch = u256(self._require_clock())
         inv.buyer_dispute_text = text
+        inv.buyer_dispute_withdrawn_epoch = u256(0)
+        self._dispute_invalidates(inv)
         return "disputed"
+
+    @gl.public.write
+    def withdraw_buyer_dispute(self, invoice_id: str) -> str:
+        """The buyer's wallet withdraws its dispute — the honest exit for a
+        disagreement resolved off-chain. Withdrawal is history, not
+        erasure: both epochs stay recorded and the next panel is told a
+        dispute was filed and withdrawn. Terms do NOT spring back — they
+        were struck because no judgment had read the dispute, and only a
+        fresh judgment (new evidence version, or a challenge) can price
+        the record again."""
+        inv = self._get(invoice_id)
+        if self._sender() != inv.buyer:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the named buyer wallet can withdraw")
+        if not self._dispute_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} no dispute is open")
+        inv.buyer_dispute_withdrawn_epoch = u256(self._require_clock())
+        return "withdrawn"
 
     @gl.public.write
     def cancel_invoice(self, invoice_id: str) -> str:
@@ -794,6 +885,15 @@ class Factora(gl.Contract):
         raw = self.assessments.get(f"{inv.invoice_id}|{version}")
         if raw is None:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} pending assessment record missing")
+        # DEPTH: file_buyer_dispute() already struck this pending verdict
+        # the moment an unseen dispute landed, so nothing should reach here
+        # with one. It stands because a future relaxation of that path must
+        # not quietly reopen promotion over the obligor's objection.
+        if self._dispute_open(inv) and not json.loads(raw).get(
+                "buyer_dispute_open", False):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer disputed after this verdict was "
+                "judged — a reassessment must read the dispute first")
         self._promote(inv, json.loads(raw), version)
         return inv.status
 
@@ -871,7 +971,9 @@ class Factora(gl.Contract):
         issue_date = inv.issue_date
         due_epoch = int(inv.due_epoch)
         buyer_acked = int(inv.buyer_ack_epoch) != 0
-        dispute_open = int(inv.buyer_dispute_epoch) != 0
+        dispute_open = self._dispute_open(inv)
+        dispute_withdrawn = (int(inv.buyer_dispute_epoch) != 0
+                             and int(inv.buyer_dispute_withdrawn_epoch) != 0)
         dispute_text = _defang(inv.buyer_dispute_text)
         committed_ids = [it["id"] for it in items]
 
@@ -1159,6 +1261,7 @@ Respond ONLY with JSON:
             "observed_epoch": now,
             "buyer_acknowledged": acked,
             "buyer_dispute_open": dispute_open,
+            "buyer_dispute_withdrawn": dispute_withdrawn,
             "decision": out["decision"],
             "risk": out["risk"],
             "score": out["score"],
@@ -1192,7 +1295,11 @@ Respond ONLY with JSON:
         sender = self._sender()
         if inv.challenge_open == "yes":
             raise gl.vm.UserError(f"{ERROR_EXPECTED} a challenge is already open")
-        if inv.status not in ("PENDING_FINALITY", "FINANCEABLE", "FUNDED"):
+        if inv.status not in ("PENDING_FINALITY", "FINANCEABLE", "FUNDED",
+                              "REVIEW"):
+            # REVIEW joined the list with the dispute-invalidation rule: a
+            # struck verdict must not depend on the seller's initiative
+            # alone — anyone may bond a challenge and force the re-judgment.
             raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing challengeable in {inv.status}")
         if sender == inv.seller:
             raise gl.vm.UserError(
@@ -1367,6 +1474,11 @@ Respond ONLY with JSON:
         inv.challenge_open = ""
         inv.challenge_bond_atto = u256(0)
         inv.challenge_snapshot = ""
+        # A dispute filed while the challenge was open must not be undone
+        # by restoring the pre-challenge snapshot: re-apply the same
+        # invalidation the filing path runs, now that the pending fields
+        # belong to the invoice again.
+        self._dispute_invalidates(inv)
         return "lapsed"
 
     # ── funding, repayment, settlement ───────────────────────────────────────
@@ -1394,6 +1506,16 @@ Respond ONLY with JSON:
             raise gl.vm.UserError(
                 f"{ERROR_EXPECTED} the effective assessment does not cover "
                 "the latest evidence")
+        # DEPTH: an open dispute flips FINANCEABLE to REVIEW on filing, and
+        # a judged-and-seen dispute cannot produce FINANCEABLE at all (the
+        # verdict derivation coerces it), so no path reaches funding with a
+        # dispute standing. The refusal stays for the day either of those
+        # guards weakens: money must never move over the obligor's
+        # unjudged objection.
+        if self._dispute_open(inv):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer's dispute stands between this "
+                "verdict and funding — a reassessment must read it first")
         now = self._require_clock()
         if now > int(inv.funding_deadline_epoch):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} the funding deadline has passed")
@@ -1539,6 +1661,7 @@ Respond ONLY with JSON:
             "status": inv.status, "monitoring": inv.monitoring,
             "buyer_ack_epoch": int(inv.buyer_ack_epoch),
             "buyer_dispute_epoch": int(inv.buyer_dispute_epoch),
+            "buyer_dispute_withdrawn_epoch": int(inv.buyer_dispute_withdrawn_epoch),
             "buyer_dispute_text": inv.buyer_dispute_text,
             "assessed_version": int(inv.assessed_version),
             "pending_version": int(inv.pending_version),
@@ -1626,7 +1749,7 @@ Respond ONLY with JSON:
         a limit will eventually guess wrong, and the user pays for that in a
         reverted transaction."""
         return json.dumps({
-            "version": "0.1.1",
+            "version": "0.1.2",
             "min_invoice_atto": str(MIN_INVOICE_ATTO),
             "max_invoice_atto": str(MAX_INVOICE_ATTO),
             "reference_chars": [MIN_REFERENCE_CHARS, MAX_REFERENCE_CHARS],

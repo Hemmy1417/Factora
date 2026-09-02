@@ -54,7 +54,7 @@ export const disputeFiled =
   (id: string, r: Readers = real) =>
   async (): Promise<boolean> => {
     const v = await inv(r, id);
-    return !!v && v.buyer_dispute_epoch > 0;
+    return !!v && v.buyer_dispute_epoch > 0 && v.buyer_dispute_withdrawn_epoch === 0;
   };
 
 export const assessmentPendingAt =
@@ -100,4 +100,12 @@ export const claimableDrained =
   async (): Promise<boolean> => {
     const v = await r.getClaimable(addr, true);
     return v === "0";
+  };
+
+/** The buyer withdrew their dispute — filed stays on the record, open ends. */
+export const disputeWithdrawn =
+  (id: string, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.buyer_dispute_withdrawn_epoch > 0;
   };

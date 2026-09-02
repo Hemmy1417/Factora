@@ -46,7 +46,7 @@ export function LedgerRows({ list, me }: { list: Invoice[]; me: string }) {
                 {v.buyer_ack_epoch ? (
                   <span className="stamp tone-good">countersigned</span>
                 ) : null}
-                {v.buyer_dispute_epoch ? (
+                {v.buyer_dispute_epoch && !v.buyer_dispute_withdrawn_epoch ? (
                   <span className="stamp tone-bad">disputed</span>
                 ) : null}
               </div>

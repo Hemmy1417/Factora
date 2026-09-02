@@ -11,7 +11,8 @@ const base = (over: Partial<Invoice> = {}): Invoice => ({
   due_epoch: 0, funding_deadline_epoch: 0, challenge_window_seconds: 1800,
   created_epoch: 0, evidence_version: 1, evidence_root: "r",
   status: "COMMITTED", monitoring: "NONE",
-  buyer_ack_epoch: 0, buyer_dispute_epoch: 0, buyer_dispute_text: "",
+  buyer_ack_epoch: 0, buyer_dispute_epoch: 0,
+  buyer_dispute_withdrawn_epoch: 0, buyer_dispute_text: "",
   assessed_version: 0, pending_version: 0, pending_until_epoch: 0,
   decision: "", risk: "", score: 0, advance_rate_bps: 0, fee_bps: 0,
   advance_atto: "0", provider: "", funded_epoch: 0, funded_advance_atto: "0",
@@ -65,5 +66,17 @@ describe("predicates are anchored and force-read", () => {
     const list = async () => [base(), base({ invoice_id: "fac-000002" })];
     expect(await P.invoiceCountAbove(1, "0xaa", list)()).toBe(true);
     expect(await P.invoiceCountAbove(2, "0xaa", list)()).toBe(false);
+  });
+});
+
+describe("dispute predicates track open versus withdrawn", () => {
+  it("filed means open, withdrawal ends it, history stays checkable", async () => {
+    const open = readers(base({ buyer_dispute_epoch: 100 }));
+    const withdrawn = readers(base({
+      buyer_dispute_epoch: 100, buyer_dispute_withdrawn_epoch: 200 }));
+    expect(await P.disputeFiled("fac-000001", open)()).toBe(true);
+    expect(await P.disputeFiled("fac-000001", withdrawn)()).toBe(false);
+    expect(await P.disputeWithdrawn("fac-000001", withdrawn)()).toBe(true);
+    expect(await P.disputeWithdrawn("fac-000001", open)()).toBe(false);
   });
 });

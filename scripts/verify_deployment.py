@@ -42,6 +42,7 @@ EXPECTED_WRITES = {
     "acknowledge_invoice", "cancel_invoice", "challenge", "challenge_lapse",
     "claim", "claim_advance", "commit_evidence", "create_invoice",
     "execute_settlement", "file_buyer_dispute", "finalize_assessment",
+    "withdraw_buyer_dispute",
     "fund", "mark_defaulted", "mark_expired", "prepare_settlement",
     "reassess", "repay", "request_assessment",
 }

@@ -18,6 +18,7 @@ export type Invoice = {
   monitoring: string;
   buyer_ack_epoch: number;
   buyer_dispute_epoch: number;
+  buyer_dispute_withdrawn_epoch: number;
   buyer_dispute_text: string;
   assessed_version: number;
   pending_version: number;
@@ -98,6 +99,7 @@ export type Assessment = {
   observed_epoch: number;
   buyer_acknowledged: boolean;
   buyer_dispute_open: boolean;
+  buyer_dispute_withdrawn: boolean;
   decision: string;
   risk: string;
   score: number;

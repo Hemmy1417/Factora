@@ -8,7 +8,7 @@
 
 A business is owed money through a legitimate invoice and needs the capital now. A factoring provider will advance it - if the obligation is real. That fact lives in fragmented, unstructured evidence: the invoice, the purchase order, the delivery trail, the buyer's standing, the disputes nobody mentions. No price feed can settle it. Factora commits that evidence on-chain, puts it to a validator panel that judges it under consensus, and converts the judgment into bounded financing terms through a code table the model never touches.
 
-Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0xE2B4A382b040619779286fa808138A423B10C88a`](https://studio.genlayer.com) on GenLayer StudioNet
+Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5`](https://explorer-studio.genlayer.com/address/0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5) on GenLayer StudioNet
 
 ## What it is
 
@@ -38,8 +38,9 @@ Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: 
 ### For the buyer's wallet
 
 1. Acknowledge the obligation - the one identity fact a seller cannot manufacture.
-2. Or dispute it on-chain: an open buyer dispute is contract-verified adverse evidence, and no assessment run over it can conclude financeable.
-3. Repay the invoice amount, in full, from the acknowledged wallet only.
+2. Or dispute it on-chain: an open buyer dispute is contract-verified adverse evidence, no assessment run over it can conclude financeable, and a dispute filed AFTER a judgment strikes that judgment's effect - pending or effective terms are invalidated and finalization and funding stay blocked until a reassessment reads the dispute.
+3. Withdraw a dispute resolved off-chain. Withdrawal is history, not erasure: the next panel is told a dispute was filed and withdrawn, and terms return only through a fresh judgment.
+4. Repay the invoice amount, in full, from the acknowledged wallet only.
 
 ### For anyone
 
@@ -96,9 +97,9 @@ The model recommends nothing in basis points and does not even name the decision
 | | |
 |---|---|
 | Network | GenLayer StudioNet (chain `61999`) |
-| Address | `0xE2B4A382b040619779286fa808138A423B10C88a` |
-| Deploy tx | `0xb9bb20c4cc50ea5889e042274ef0fa5fc54d2d508d2aac7de639050794f36c04` |
-| Version | `0.1.1` (read live from `get_config`) |
+| Address | `0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5` |
+| Deploy tx | `0xedb264ec144e5aaefbc033439fa2e1bb39b4085adfa87391839d92cb46b97bfe` |
+| Version | `0.1.2` (read live from `get_config`) |
 | Source | `contracts/factora.py` |
 | Runner | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` (pinned) |
 | Owner / admin key | **none** - `__init__` sets four counters and nothing else |
@@ -110,7 +111,8 @@ The model recommends nothing in basis points and does not even name the decision
 | `create_invoice` | seller | - | deterministic identity; duplicates refused |
 | `commit_evidence` | seller | - | append-only versions; walks the state back to COMMITTED |
 | `acknowledge_invoice` | buyer wallet | - | the countersignature; raises the advance table |
-| `file_buyer_dispute` | buyer wallet | - | contract-verified adverse evidence |
+| `file_buyer_dispute` | buyer wallet | - | contract-verified adverse evidence; strikes any judgment that never read it |
+| `withdraw_buyer_dispute` | buyer wallet | - | ends the dispute, keeps its history |
 | `request_assessment` | seller | - | one judgment per version; arms the challenge window |
 | `finalize_assessment` | anyone | - | permissionless promotion after the window |
 | `challenge` | anyone but the seller | bond | appends evidence as the next version; snapshots what it challenges |
@@ -134,63 +136,78 @@ The model recommends nothing in basis points and does not even name the decision
 - The recorded dossier is consensus-bound, not leader-authored: validators compare the record's rows structurally, re-derive each digest from the stored bytes, and refuse committed-document excerpts that differ from the committed bytes.
 - A validator whose own rerun fails disagrees rather than throwing, so a broken model rotates the round instead of discarding it.
 - Deterministic coercions run inside the judged block - an open buyer dispute, HIGH risk, or an empty examined set can never emerge FINANCEABLE - so every validator lands on the identical corrected verdict.
+- The obligor's repudiation outranks a verdict that never read it: a buyer dispute filed after a judgment deterministically strikes that judgment's effect - a pending verdict loses its promotion, effective terms are zeroed, funding and finalization refuse - and a lapsed challenge re-applies the same rule so a snapshot restore cannot resurrect struck terms. The dossier itself is preserved; only its authority is gone.
 
 ## Verified end-to-end
 
-The full arc below ran against the live deployment with real GEN — reproduce it with `node web/scripts/live-demo.mjs <address>`. Worth noticing in the recorded run: the panel marked the seller pillar INSUFFICIENT because the whole record was seller-declared ("a single voice"), while crediting the buyer's contract-verified countersignature — the trust model steering a real judgment — and the reassessment after the buyer's on-chain dispute dropped the record to REVIEW_REQUIRED / HIGH without touching the already-funded terms.
+The stewards' regression — a buyer dispute filed AFTER the panel ruled — ran
+against the live v0.1.2 deployment with real GEN: the mid-window dispute
+struck the pending verdict on-chain, finalization and funding were probed and
+refused, withdrawal restored nothing by itself, and the re-judged record
+(panel reasoning about the resolution memo and the withdrawn dispute)
+finalized, funded, repaid and settled with the split conserving to the atto.
+Reproduce it with `node web/scripts/live-dispute-regression.mjs <address>`.
 
 ```text
-FACTORA LIVE DEMO  ·  0xE2B4A382b040619779286fa808138A423B10C88a
+FACTORA DISPUTE-INVALIDATION REGRESSION  ·  0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5
 
-1. Acme registers the receivable and commits evidence v1
-  ok    registered as fac-000003  (INV-DEMO-1788183140)
-  ok    evidence v1 committed  (root bc5612ae183baaec…)
+1. Register, commit v1, countersign, and put it to the panel
+  ok    registered as fac-000001  (INV-DEMO-1788356922)
+  ok    evidence v1 committed and countersigned on-chain
+  ok    panel ruled on v1: FINANCEABLE · MEDIUM · score 78
 
-2. MegaRetail's own wallet acknowledges the obligation
-  ok    countersigned on-chain — the fact a seller cannot manufacture
+2. Mid-window, the buyer's wallet disputes — the verdict must fall
+  ok    pending verdict struck: nothing awaits promotion
+  ok    terms zeroed — no table row prices a repudiated record
+  ok    the v1 dossier is preserved — effect struck, history kept
 
-3. The record goes to the panel (consensus round, real validators)
-  ok    panel ruled: FINANCEABLE · MEDIUM · score 62
-  ok    examined 4 of 4, excluded 0
-  ..    findings: seller INSUFFICIENT · buyer SUPPORTED · transaction SUPPORTED
-  ..    reason: The buyer's on-chain countersignature (contract-verified) is strong independent support for the buyer's identity and acknowledgement of the obligation, and the invoice amount of 100000000000000000 atto-GEN is internally consistent across EV-001 and EV-002. However, all four evidence items are seller-declared documents that corroborate one another but ultimately represent a single voice — no independent third-party verification of the seller's identity or standing exists on this record, warranting INSUFFICIENT for the seller finding. The transaction narrative (PO, delivery receipt, payment hist
-  ..    window closes 2026-08-31T13:49:43.000Z
+3. Finalization and funding are probed and must refuse
+  ok    refused: finalize over the struck verdict
+  ok    refused: funding the struck verdict
 
-4. The walls hold while the verdict is pending
-  ok    refused: funding before finality
-  ok    refused: a stranger repaying
+4. The buyer withdraws; v2 goes back to the panel with the history
+  ok    withdrawal does not resurrect terms — only a judgment can
+GenLayer RPC error (gen_call): fetch failed
+  ok    panel ruled on v2: FINANCEABLE · LOW · score 95
+  ok    the v2 dossier records the dispute as filed-and-withdrawn history
+  ..    reason: The transaction is strongly supported by the buyer's on-chain acknowledgement of the 0.100 GEN obligation and EV-003 confirming receipt of goods. While a quality issue occurred, EV-005 confirms resolution and the withdrawal of any dispute, leaving the original invoice amount valid and due. EV-004 further supports the finding through a clean historical payment record between the two parties.
 
-5. The challenge window lapses; promotion is permissionless
-  ..    waiting 845s of real window
-  ok    FINANCEABLE — advance 7000 bps, fee 500 bps (table on pinned risk)
+5. Window lapses → finalize → fund → repay → settle → reconcile
+  ..    waiting 806s for the real challenge window
+  ok    FINANCEABLE: advance 8500 bps · fee 300 bps
+  ok    funded with the exact derived advance  (0.085 GEN)
+  ok    the prepared split conserves the repayment to the atto
+  FAIL  timed out waiting: both parties drained their claimables
 
-6. The capital provider funds the derived advance exactly
-  ok    refused: funding one atto short
-  ok    funded with 0.070 GEN — escrowed, seller credited
-
-7. Acme claims the advance
-  ok    advance claimed — the transfer rides finalization
-
-8. New facts: the buyer disputes on-chain; a challenger bonds evidence
-  ok    buyer dispute recorded from the buyer's own wallet
-  ok    challenged with a 0.050 GEN bond — evidence appended as v2
-  ok    re-judged: REVIEW_REQUIRED · HIGH · score 42 (was 62)
-  ok    monitoring is now REVIEW_REQUIRED; funded terms untouched (7000 bps)
-
-9. The buyer repays; the split prepares, executes, and reconciles
-  ok    repaid 0.100 GEN into custody
-  ok    split prepared: provider 0.075 GEN · seller 0.025 GEN
-  ok    executed — SETTLED
-  ok    refused: settling twice
-  ok    PROVIDER claimed 0.075 GEN
-  ok    SELLER claimed 0.025 GEN
-  ok    CHALLENGER claimed 0.050 GEN
-  ok    custody reconciled to zero — every atto left through a claim
-
-ARC COMPLETE  ·  fac-000003  ·  0 failures
+ARC ABORTED at: both parties drained their claimables
 ```
 
-Direct suite: **110 tests**. Mutation sweep: **57/57 guards pinned**, 5 declared depth, accept-control green. Web suite: **35 tests** including the signed-write proof and the live-measured finality fixtures. `genvm-lint check`: clean.
+Two honesty notes. The transcript's header shows `0x0c54C840…B507`: the
+arc ran and settled on the immediate predecessor deployment, which was
+character-identical to this source but carried CRLF line endings (the
+ledger in docs/DEPLOYMENT.md tells that story); the current address is the
+same characters deployed as LF, with the verifier now refusing CR bytes
+outright. And on the final line: the arc had spent most of an hour of
+StudioNet's per-IP read budget by its last check, and the harness's poll
+timed out against the rate limiter — the chain state it was waiting for was
+already true. Verified directly afterwards:
+
+```text
+fac-000001  status SETTLED · settled_epoch 1788358129
+claimable  seller 0 · buyer 0 · provider 0
+stats      {"invoices":1,"funded":1,"settled":1,"escrow_atto":"0"}
+```
+
+The previous full lifecycle arc (assessment on a single-voice record capping
+the seller pillar, funding, a post-funding dispute flipping monitoring
+without touching funded terms, settlement to custody zero) remains recorded
+on v0.1.1 at `0xE2B4A382b040619779286fa808138A423B10C88a` — instruments do
+not migrate, and its transcript lives in that deployment's git history.
+
+Test gates behind the transcript: 119 direct tests (nine of them the
+dispute-invalidation regressions), a 62/62 mutation sweep with 7
+declared-depth guards and a green accept-control, 35 frontend tests,
+genvm-lint clean.
 
 ## Tech stack
 
@@ -235,7 +252,7 @@ cd web && npm install && npm test && npm run build
 ```
 
 ```bash
-python scripts/verify_deployment.py 0xE2B4A382b040619779286fa808138A423B10C88a
+python scripts/verify_deployment.py 0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5
 ```
 
 Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`, then `npm run dev`.
@@ -246,8 +263,14 @@ Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`
 - Reserve-at-acceptance is not needed: there is no shared pool - each position escrows its own advance, and the split is conserved by assertion before it is stored.
 - Prompt-injection surface: both fence delimiters are sanitized out of every party string and fetched page; URLs are printable-ASCII with the header-forging characters refused; a forged fence arrives visibly defused and weighs against its supplier.
 - The subject of the judgment does not control its strongest identity evidence: the buyer countersignature and the buyer dispute are signed by the buyer's own wallet, and declared-only records cap the advance in code.
-- Challenges snapshot what they challenge; a lapse restores exactly that snapshot; an unresolved challenge has a permissionless wall-clock exit.
+- Challenges snapshot what they challenge; a lapse restores exactly that snapshot - then re-applies the dispute-invalidation rule, so a stale challenge is not a way to sneak a repudiated verdict back into effect - and an unresolved challenge has a permissionless wall-clock exit.
 - Known limitation, stated: the MVP holds no seller collateral, so a default records the provider's loss - it cannot manufacture a recovery. Off-chain document authenticity (a forged PDF pasted as text) is bounded by the countersignature cap, not solved.
+
+### Trust model, stated plainly
+
+- Wallets are keys, not legal identities. The buyer countersignature proves the obligation is acknowledged by whoever holds the buyer key the seller named at registration - it binds the debt to a key, and it is the strongest fact in the record precisely because the seller cannot mint it. It does not prove the key belongs to "MegaRetail Ltd", and neither the contract nor the panel pretends it does: every committed document reaches the panel labelled as the seller's declaration, the countersignature and dispute as wallet-signed chain facts, and fetched pages as contract-retrieved.
+- The table prices that honesty: a record whose only voice is the seller's caps the advance in code, countersigned records earn the full rate, and identity findings the panel returns are about coherence of the record, never about legal personhood.
+- Strengthening path, deliberately out of MVP scope: registrar-anchored identity attestations (a signed statement binding a wallet to a registered business, verified as a frozen external source) and signed evidence sources (documents carrying their issuer's signature, verified in code before the panel reads them) would raise the countersignature from key-bound to identity-bound. The evidence pipeline already supports frozen external URLs fetched under consensus, which is where such attestations would plug in.
 
 ## Design notes
 

@@ -1,4 +1,6 @@
-*.py text eol=lf
-*.ts text eol=lf
-*.tsx text eol=lf
-*.md text eol=lf
+# The contract's bytes ARE the deployment: line endings are load-bearing.
+# Everything text is stored and checked out LF so the file you deploy is
+# the file a fresh clone verifies. The 0x92Bd… and 0x0c54… ledger rows in
+# docs/DEPLOYMENT.md are what happens without this.
+* text=auto eol=lf
+*.png binary

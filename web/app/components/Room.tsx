@@ -166,8 +166,11 @@ export function Room({ id }: { id: string }) {
           ) : (
             <span className="stamp tone-neutral">not countersigned</span>
           )}
-          {inv.buyer_dispute_epoch ? (
+          {inv.buyer_dispute_epoch && !inv.buyer_dispute_withdrawn_epoch ? (
             <span className="stamp tone-bad">buyer dispute open</span>
+          ) : null}
+          {inv.buyer_dispute_withdrawn_epoch ? (
+            <span className="stamp tone-neutral">dispute withdrawn</span>
           ) : null}
           {(inv.status === "FUNDED" || inv.status === "REPAID") && inv.monitoring !== "NONE" ? (
             <span className={`stamp ${inv.monitoring === "NORMAL" ? "tone-active" : "tone-hold"}`}>
@@ -175,9 +178,15 @@ export function Room({ id }: { id: string }) {
             </span>
           ) : null}
         </div>
-        {inv.buyer_dispute_text ? (
+        {inv.buyer_dispute_text && !inv.buyer_dispute_withdrawn_epoch ? (
           <p className="note bad" style={{ margin: 0 }}>
             The buyer&apos;s wallet filed on-chain: “{inv.buyer_dispute_text}”
+          </p>
+        ) : null}
+        {inv.buyer_dispute_withdrawn_epoch ? (
+          <p className="v-body" style={{ margin: 0, fontSize: 13 }}>
+            A dispute was filed and withdrawn by the buyer&apos;s wallet; the
+            next judgment reads that history.
           </p>
         ) : null}
       </div>
@@ -433,7 +442,22 @@ function Actions({
       </ActionCard>,
     );
   }
-  if (isBuyer && !inv.buyer_dispute_epoch
+  const disputeOpen =
+    inv.buyer_dispute_epoch > 0 && !inv.buyer_dispute_withdrawn_epoch;
+  if (isBuyer && disputeOpen) {
+    cards.push(
+      <ActionCard key="withdraw" title="Withdraw the dispute" quiet
+        body="For a disagreement resolved off-chain. Terms do not spring back -
+          only a fresh judgment can price the record again.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("withdraw_buyer_dispute", [id], 0n,
+            P.disputeWithdrawn(id), "Withdrawn. The record keeps the history.")}>
+          Withdraw dispute
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isBuyer && !disputeOpen
       && !["SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
     cards.push(
       <ActionCard key="dispute" title="Dispute the invoice" quiet

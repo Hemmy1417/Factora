@@ -241,13 +241,49 @@ MUTATIONS = [
      "if abs(FINDING_STEP[mv] - FINDING_STEP[tv]) > 1:",
      "if False:"),
 
+
+    # ── the dispute-invalidation rule (judge letter, v0.1.2) ──
+    ("dispute: a post-judgment dispute leaves a pending verdict promotable",
+     '''        if inv.status == "PENDING_FINALITY":
+            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))''',
+     '''        if False:
+            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))'''),
+    ("dispute: effective terms survive the obligor's repudiation",
+     '''        elif inv.status == "FINANCEABLE":
+            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))''',
+     '''        elif False:
+            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))'''),
+    ("dispute: a lapsed challenge resurrects struck terms",
+     '''        self._dispute_invalidates(inv)
+        return "lapsed"''',
+     '''        return "lapsed"'''),
+    ("dispute: anyone can withdraw another buyer's dispute",
+     "if self._sender() != inv.buyer:", "if False:", 2),
+    ("dispute: a second dispute can pile onto an open one",
+     '''        if self._dispute_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} a dispute is already open")''',
+     ""),
+    # Nothing reaches these two while the filing path strikes first — they
+    # exist for the day it weakens, and the sweep says so instead of
+    # pretending a test pins them.
+    ("DEPTH dispute: finalize promotes over an unseen dispute",
+     '''if self._dispute_open(inv) and not json.loads(raw).get(
+                "buyer_dispute_open", False):''',
+     "if False:"),
+    ("DEPTH dispute: funding proceeds over a standing dispute",
+     '''        if self._dispute_open(inv):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer's dispute stands between this "
+                "verdict and funding — a reassessment must read it first")''',
+     ""),
+
     # ── the accept-control: must stay GREEN ──
     ("CONTROL (must survive)",
-     '"version": "0.1.1",',
+     '"version": "0.1.2",',
      '"version": "0.0.9",  # control'),
 ]
 
-EXPECTED_MIN_GUARDS = 55
+EXPECTED_MIN_GUARDS = 60
 
 
 def run_suite(cwd: pathlib.Path) -> bool:
