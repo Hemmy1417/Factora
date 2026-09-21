@@ -71,6 +71,9 @@ export default function ReceivablesPage() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [problem, setProblem] = useState("");
+  // "Nothing registered yet" is a claim about the chain. It may only be made
+  // once the chain has answered, never while a read is pending or has failed.
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +83,7 @@ export default function ReceivablesPage() {
         if (!alive) return;
         setAll(page.invoices);
         setTotal(page.total);
+        setLoaded(true);
         setProblem("");
         if (w.address) {
           const m = await getInvoicesFor(w.address);
@@ -127,9 +131,16 @@ export default function ReceivablesPage() {
       <div className="section-head" style={{ marginTop: w.address && mine.length ? 72 : 56 }}>
         <span className="section-no">{w.address && mine.length ? "02" : "01"}</span>
         <h2>All instruments</h2>
-        <span className="aside v-label">{total} registered</span>
+        <span className="aside v-label">{loaded ? `${total} registered` : "reading"}</span>
       </div>
-      {all.length === 0 ? (
+      {!loaded ? (
+        <div className="tile" style={{ justifyItems: "start" }}>
+          <span className="v-label">{problem ? "The register could not be read" : "Reading the contract"}</span>
+          <div className="big" style={{ fontSize: 22 }}>
+            {problem ? "Nothing is shown rather than something wrong." : "One moment."}
+          </div>
+        </div>
+      ) : all.length === 0 ? (
         <div className="tile" style={{ justifyItems: "start" }}>
           <span className="v-label">Nothing registered yet</span>
           <div className="big" style={{ fontSize: 22 }}>The first invoice goes here.</div>
