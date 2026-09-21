@@ -199,6 +199,62 @@ def test_the_providers_evidence_carries_a_default_without_a_countersignature(mod
     assert ruled(module, c, iid, "BUYER_DEFAULT", ["DF-1-1"])["finding"] == "BUYER_DEFAULT"
 
 
+def _buyer_challenged_then_defaulted(module, c):
+    """The buyer is allowed to challenge (anyone but the seller is), so its
+    paper can already be sitting in the seller's record when a default comes."""
+    from conftest import funded
+    iid = funded(module, c)
+    bond = int(inv_of(c, iid)["challenge_bond_required_atto"])
+    as_(module, BUYER, bond)
+    c.challenge(iid, "we paid this supplier directly and hold the remittance advice",
+                json.dumps([text_item("Remittance advice", REMITTANCE, "payment_history")]))
+    panel_says(panel_answer(n_items=4))
+    as_(module, STRANGER, 0)
+    c.reassess(iid)
+    advance(30 * 86400 + 86400 + 1)
+    c.mark_defaulted(iid)
+    return iid
+
+
+def test_the_buyers_challenge_evidence_is_not_the_sellers_admission(module, c):
+    """Found in the pre-submission debug. The challenger's item lives in the
+    same manifest as the seller's documents; read as the seller's own, the
+    buyer's paper would have named the seller."""
+    iid = _buyer_challenged_then_defaulted(module, c)
+    as_(module, BUYER, 0)
+    c.file_default_evidence(iid, filing(REMITTANCE))
+    assert ruled(module, c, iid, "SELLER_RECOURSE", ["EV-004", "DF-1-1"])["finding"] == "UNRESOLVED"
+    assert "EV-004 | ORIGINAL RECORD | WRITTEN BY A CHALLENGER" in prompts()[-1]
+    assert "EV-001 | ORIGINAL RECORD | WRITTEN BY THE SELLER" in prompts()[-1]
+
+
+def test_a_challengers_paper_names_no_buyer_either(module, c):
+    from conftest import CHALLENGER, funded
+    iid = funded(module, c, ack=False)
+    bond = int(inv_of(c, iid)["challenge_bond_required_atto"])
+    as_(module, CHALLENGER, bond)
+    c.challenge(iid, "a friend of the seller vouches that the goods were used",
+                json.dumps([text_item("Site note", "SITE NOTE. All 40 pallets are in use at the buyer's warehouse and unpaid.", "business_record")]))
+    panel_says(panel_answer(n_items=4))
+    as_(module, STRANGER, 0)
+    c.reassess(iid)
+    advance(30 * 86400 + 86400 + 1)
+    c.mark_defaulted(iid)
+    as_(module, SELLER, 0)
+    c.file_default_evidence(iid, filing(CHASER))
+    assert ruled(module, c, iid, "BUYER_DEFAULT", ["EV-004"])["finding"] == "UNRESOLVED"
+
+
+def test_a_seller_cannot_wear_the_challengers_label(module, c):
+    from conftest import created
+    iid = created(module, c)
+    items = demo_items()
+    items[2]["label"] = "[challenger] Delivery receipt"
+    as_(module, SELLER, 0)
+    with pytest.raises(err(module), match=r"cannot begin with \[CHALLENGER\]"):
+        c.commit_evidence(iid, json.dumps(items))
+
+
 def test_items_the_panel_invents_corroborate_nothing(module, c):
     iid = defaulted(module, c)
     as_(module, BUYER, 0)

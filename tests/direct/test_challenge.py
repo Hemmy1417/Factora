@@ -183,3 +183,54 @@ def test_challenge_on_a_settled_invoice_refuses(module, c):
     with pytest.raises(err(module), match="nothing challengeable"):
         c.challenge(iid, "objection raised after everyone has been paid "
                          "out entirely", json.dumps(_challenge_items()))
+
+
+# ── a lapse restores the assessment's standing, never the money ──────────────
+# Found in the pre-submission debug of v0.3.0, and older than it: repayment
+# and default both stay open while a challenge is, and a lapse used to put
+# FUNDED back over whatever they had written.
+
+def _stale_challenge_on_a_funded_invoice(module, c, iid):
+    from conftest import CHALLENGER
+    bond = int(json.loads(c.get_invoice(iid))["challenge_bond_required_atto"])
+    as_(module, CHALLENGER, bond)
+    c.challenge(iid, "the delivery receipt names a different warehouse",
+                json.dumps([text_item("Gate log", "GATE LOG. No delivery was logged at the Apapa gate that week at all.", "business_record")]))
+
+
+def test_a_lapse_does_not_strand_a_repayment_made_while_the_challenge_was_open(module, c):
+    from conftest import AMOUNT, BUYER, PROVIDER, funded
+    iid = funded(module, c)
+    _stale_challenge_on_a_funded_invoice(module, c, iid)
+    as_(module, BUYER, AMOUNT)
+    c.repay(iid)
+    advance(3601)
+    as_(module, STRANGER, 0)
+    c.challenge_lapse(iid)
+    inv = json.loads(c.get_invoice(iid))
+    assert inv["status"] == "REPAID" and not inv["challenge_open"]
+    as_(module, BUYER, AMOUNT)
+    with pytest.raises(err(module), match="nothing to repay"):
+        c.repay(iid)                                   # never twice
+    as_(module, STRANGER, 0)
+    c.prepare_settlement(iid)
+    c.execute_settlement(iid)
+    for who in (SELLER, PROVIDER, CHALLENGER):
+        as_(module, who, 0)
+        c.claim()
+    assert json.loads(c.get_stats())["escrow_atto"] == "0"
+
+
+def test_a_lapse_does_not_erase_a_default_recorded_while_the_challenge_was_open(module, c):
+    from conftest import funded
+    iid = funded(module, c)
+    advance(30 * 86400 + 86400 - 100)
+    _stale_challenge_on_a_funded_invoice(module, c, iid)
+    advance(200)
+    as_(module, STRANGER, 0)
+    c.mark_defaulted(iid)
+    advance(3601)
+    c.challenge_lapse(iid)
+    inv = json.loads(c.get_invoice(iid))
+    assert inv["status"] == "DEFAULTED" and inv["defaulted_epoch"] > 0
+

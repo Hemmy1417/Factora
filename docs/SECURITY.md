@@ -63,9 +63,13 @@
 - A default is adjudicated, and nobody is found liable on their opponent's
   paper (v0.3.0). The panel returns a finding and the items behind it;
   `_default_finding` decides in code whether it can stand. `SELLER_RECOURSE`
-  needs a named item the buyer did not write. `BUYER_DEFAULT` needs the
-  buyer's on-chain countersignature or a named item the seller did not
-  write. Anything less is `UNRESOLVED` and names nobody. Both the panel's
+  needs a named item written by the seller (an admission) or the provider.
+  `BUYER_DEFAULT` needs the buyer's on-chain countersignature or a named
+  item written by the buyer (an admission) or the provider. Items a
+  challenger added to the record corroborate neither: the buyer may be the
+  challenger, the record does not keep which wallet it was, and a seller is
+  refused any label beginning with the challenger's tag, so it cannot hide
+  its own admissions behind it. Anything less is `UNRESOLVED` and names nobody. Both the panel's
   word and the recorded finding are stored. Validators compare the recorded
   finding, so two panels that disagree in words but land together after the
   floor agree; and a validator re-applies the floor to the leader's own
@@ -96,10 +100,31 @@ corroboration floor, and two beacon heads bounding both directions — a
 common forward skew of one edge network cannot close windows early. No
 witness, no clock: every timed method fails closed.
 
+## Found in the pre-submission debug of v0.3.0
+
+Two defects, both fixed before the deployment of record, both with a
+regression and a mutant.
+
+1. **A lapse could strand a repayment.** Older than v0.3.0 and present in
+   every earlier deployment. Repayment and default stay open while a
+   challenge is; a stale challenge's lapse restored the pre-challenge status
+   over whatever they had written, so REPAID went back to FUNDED with the
+   buyer's money in custody behind a status that invited a second payment,
+   and a recorded default was erased. The sweep had this guard listed as
+   unreachable, on the stated belief that status is frozen while a challenge
+   is open. It is not, and the belief is corrected where it was written.
+2. **A buyer's challenge evidence read as the seller's admission.** New in
+   v0.3.0. A challenger's items live in the same manifest as the seller's
+   documents, and the first default round labelled all of it the seller's.
+   The buyer may be the challenger, so its own paper could have named the
+   seller liable: the exact thing the floor exists to stop.
+
 ## Known limitations, stated
 
-- No seller collateral in the MVP: a default records the provider's loss;
-  it cannot manufacture a recovery.
+- No seller collateral: the protocol cannot manufacture a recovery, and a
+  default ruling cannot make anyone pay. It names who answers for the loss,
+  gives that party an exact exit, and lets the finding follow the wallet
+  until the exit is used. That is pressure, not enforcement.
 - The provider's evidence counts as independent in a default, in both
   directions. A provider is the party out of pocket and gains from SOME
   finding, not from a particular one, but a provider colluding with one side

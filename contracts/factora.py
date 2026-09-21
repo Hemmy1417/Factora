@@ -145,6 +145,7 @@ CODE_OWNED_CONFLICTS = ("BUYER_DISPUTE_OPEN", "ENTITY_CONTRADICTED",
 # directly). Who owes the capital provider depends on which, and that is a
 # judgment over evidence both sides can file.
 DEFAULT_FINDINGS = ("BUYER_DEFAULT", "SELLER_RECOURSE", "UNRESOLVED")
+CHALLENGER_TAG = "[CHALLENGER]"
 DEFAULT_SIDES = ("SELLER", "BUYER", "PROVIDER")
 
 
@@ -153,13 +154,18 @@ def _default_finding(finding: str, corroboration: list, authors: dict,
     """THE FLOOR AND ITS MIRROR, in code. A finding that names a party liable
     must rest on something that party's opponent could not mint.
 
-      SELLER_RECOURSE needs a named item the BUYER did not author: the
-        seller's own record, the seller's filing, or the provider's. A buyer
-        who says "I paid the seller directly" and files the only proof of it
-        has corroborated nothing.
+      SELLER_RECOURSE needs a named item written by the SELLER (its own
+        record or filing, an admission) or by the PROVIDER. A buyer who says
+        "I paid the seller directly" and files the only proof of it has
+        corroborated nothing.
       BUYER_DEFAULT needs the buyer's on-chain countersignature, or a named
-        item the SELLER did not author. A seller pointing at its own
-        documents has corroborated nothing either.
+        item written by the BUYER (an admission) or by the PROVIDER. A
+        seller pointing at its own documents has corroborated nothing either.
+
+    Items a CHALLENGER added to the record corroborate neither. Anyone but
+    the seller may challenge, the buyer included, and the record does not
+    keep which wallet it was: paper that either side might have written
+    cannot be what names the other.
 
     Anything less is UNRESOLVED: nobody is named, the debt stands as it was,
     and a further filing can put the question again."""
@@ -167,9 +173,9 @@ def _default_finding(finding: str, corroboration: list, authors: dict,
         return "UNRESOLVED"
     named = [authors[i] for i in corroboration if i in authors]
     if finding == "SELLER_RECOURSE":
-        return finding if any(a != "BUYER" for a in named) else "UNRESOLVED"
+        return finding if any(a in ("SELLER", "PROVIDER") for a in named) else "UNRESOLVED"
     if finding == "BUYER_DEFAULT":
-        if buyer_acked or any(a != "SELLER" for a in named):
+        if buyer_acked or any(a in ("BUYER", "PROVIDER") for a in named):
             return finding
         return "UNRESOLVED"
     return "UNRESOLVED"
@@ -828,6 +834,12 @@ class Factora(gl.Contract):
                 raise gl.vm.UserError(f"{ERROR_EXPECTED} unknown evidence type: {etype}")
             if not (1 <= len(label) <= MAX_LABEL_CHARS):
                 raise gl.vm.UserError(f"{ERROR_EXPECTED} item {i} needs a label")
+            if label.upper().startswith(CHALLENGER_TAG):
+                # The contract writes this tag on a challenger's items, and a
+                # default ruling reads it to know the seller did NOT write
+                # them. A seller wearing it would hide its own admissions.
+                raise gl.vm.UserError(
+                    f"{ERROR_EXPECTED} item {i}: a label cannot begin with {CHALLENGER_TAG}")
             if etype == "external_url":
                 if not _valid_url(url):
                     raise gl.vm.UserError(
@@ -1362,10 +1374,12 @@ class Factora(gl.Contract):
                 if it["type"] == "external_url":
                     continue          # the original pages were judged at funding; not refetched here
                 text = _defang(it["content"])
-                rows.append({"id": it["id"], "side": "SELLER", "kind": "ORIGINAL RECORD",
+                who = ("CHALLENGER" if str(it["label"]).startswith(CHALLENGER_TAG)
+                       else "SELLER")
+                rows.append({"id": it["id"], "side": who, "kind": "ORIGINAL RECORD",
                              "label": _defang(it["label"]), "excerpt": text,
                              "digest": _sha256_hex(text)})
-                authors[it["id"]] = "SELLER"
+                authors[it["id"]] = who
         for n in range(1, int(inv.default_filings_count) + 1):
             raw = self.default_filings.get(f"{invoice_id}|{n}")
             if raw is None:
@@ -1382,8 +1396,10 @@ class Factora(gl.Contract):
             blocks = []
             for r in rows:
                 blocks.append(
-                    f"<<<EVIDENCE | {r['id']} | {r['kind']} | WRITTEN BY THE {r['side']}: "
-                    f"that side's claim, not a verified fact | {r['label']}>>>\n"
+                    f"<<<EVIDENCE | {r['id']} | {r['kind']} | WRITTEN BY "
+                    + ("A CHALLENGER (any wallet but the seller's, the buyer's included)"
+                       if r["side"] == "CHALLENGER" else f"THE {r['side']}")
+                    + f": that side's claim, not a verified fact | {r['label']}>>>\n"
                     f"{r['excerpt']}\n<<<END EVIDENCE>>>")
             facts = [
                 f"- the buyer owed {due_atto} atto-GEN, due at epoch {due_epoch}; the contract "
@@ -2245,7 +2261,7 @@ Respond ONLY with JSON:
                     raise gl.vm.UserError(
                         f"{ERROR_EXPECTED} item {i}: content must be 20-{MAX_ITEM_CHARS} characters")
             row = {"id": f"EV-{base + i + 1:03d}", "type": etype,
-                   "label": f"[CHALLENGER] {label}"[:MAX_LABEL_CHARS],
+                   "label": f"{CHALLENGER_TAG} {label}"[:MAX_LABEL_CHARS],
                    "content": content, "url": url}
             row["content_hash"] = _sha256_hex(_canonical(
                 {k: row[k] for k in ("id", "type", "label", "content", "url")}))
@@ -2353,8 +2369,17 @@ Respond ONLY with JSON:
         snap = json.loads(inv.challenge_snapshot or "{}")
         bond = int(inv.challenge_bond_atto)
         self._credit(inv.challenger, bond)
-        inv.status = snap.get("status", inv.status)
-        inv.monitoring = snap.get("monitoring", inv.monitoring)
+        # The snapshot restores what the CHALLENGE put in doubt: the standing
+        # of an assessment. It must never undo money. Repayment, default and
+        # recourse all stay open while a challenge is, and each moves the
+        # status on its own authority. Restoring FUNDED over REPAID would
+        # strand the buyer's payment in custody behind a status that invites
+        # a second one; restoring it over DEFAULTED would erase a default,
+        # and any ruling on it, from the record.
+        if inv.status not in ("REPAID", "SETTLEMENT_READY", "SETTLED",
+                              "DEFAULTED", "RECOURSE_SETTLED"):
+            inv.status = snap.get("status", inv.status)
+            inv.monitoring = snap.get("monitoring", inv.monitoring)
         inv.pending_version = u256(_as_int(snap.get("pending_version"), 0))
         inv.pending_until_epoch = u256(_as_int(snap.get("pending_until_epoch"), 0))
         inv.evidence_version = u256(_as_int(snap.get("evidence_version"),

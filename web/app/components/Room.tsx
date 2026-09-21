@@ -570,7 +570,9 @@ function Actions({
     );
   }
   if (isBuyer && ["FUNDED", "DEFAULTED"].includes(inv.status)) {
-    const due = BigInt(inv.due_atto);
+    // A deployment older than v0.2.0 reports no due_atto: there the invoice
+    // amount IS what is owed, so an address not yet updated still repays.
+    const due = BigInt(inv.due_atto ?? inv.amount_atto);
     cards.push(
       <ActionCard key="repay" title="Repay the invoice"
         body={`The amount owed, in one payment: ${formatGen(due)} GEN.

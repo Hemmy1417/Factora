@@ -11,7 +11,7 @@ server. Everything below is reproducible from a clean checkout.
 | Runner | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` (pinned) |
 | Constructor args | none |
 | Owner / admin | **none** — `__init__` sets four counters and nothing else |
-| Public methods | 26 (8 view, 18 write, 3 payable) |
+| Public methods | 37 (11 view, 26 write, 4 payable) |
 
 There is no owner key, no pause switch, no upgrade hook, no privileged
 withdrawal. Every recovery path — expiry, default, stale challenges,
@@ -51,8 +51,8 @@ The deploying account pays the fee and gains nothing else.
 | | |
 |---|---|
 | Network | GenLayer StudioNet (`61999`) |
-| Address | `0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8` |
-| Deploy tx | `0x1dc4d48bc0e67299db676bf612a416b3b517a54a757e85c9da770e8e890af741` |
+| Address | `0xF9bF8e95d61e90b6077A40c344121890ED2D62e3` |
+| Deploy tx | `0x1177e00150b316673a8c89c8a8ee40d6727606ac29b7e6a9dcf63793e99838e3` |
 | Version | `0.3.0` (read live from `get_config`) |
 
 ### Superseded deployments
@@ -62,6 +62,7 @@ anywhere will outlive the moment.
 
 | Address | Why it was replaced |
 |---|---|
+| `0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8` | The first v0.3.0 deployment (deploy tx `0x1dc4d48bc0e67299db676bf612a416b3b517a54a757e85c9da770e8e890af741`), replaced the same day by the pre-submission debug. Two defects, both described in `docs/SECURITY.md`: a stale challenge's lapse could put FUNDED back over a repayment made while it was open, stranding the buyer's money in custody (older than v0.3.0, present in every earlier deployment too); and a buyer's challenge evidence was read as the seller's own admission in a default ruling. Two receivables were funded there for the default proof and remain readable; the proof was re-seeded on the corrected contract. |
 | `0x117b03D79063F4aE882bA16B17398f4Dd49814e1` | v0.2.0 (deploy tx `0x662a870268c57322a447bededcdcdf9b8893f58d9245f8d6bae74c4eae258b77`): registrar-attested identity and the buyer's partial objection. Its four-receivable live run, with a negative control for each finding, is recorded in the README and remains readable there. Superseded by v0.3.0, which adds default adjudication and changes none of what that run proved. |
 | `0x7b1BC610ef36f77CDa07e18bf534980D592aE16A` | The first v0.2.0 deployment (deploy tx `0xea362e98bb1426591962d7932e0b0339debd3485221841109172f77ed426b96d`), replaced within the hour by what its own live control found. Shown a buyer's credit claim and NO dispute, the panel named the `BUYER_DISPUTE_OPEN` conflict anyway; with a contradicted claim that made two hard conflicts and held a partial objection at review, which is the one thing a partial objection exists not to do. The code is a chain fact, so the contract now owns it: it is no longer offered to the model, is stripped if named, and is added only when a dispute is open. The four receivables judged there remain readable. |
 | `0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5` | v0.1.2, the deployment a reviewer confirmed the buyer-dispute protection on (deploy tx `0xedb264ec144e5aaefbc033439fa2e1bb39b4085adfa87391839d92cb46b97bfe`). Superseded by v0.2.0, which adds registrar-attested identity, the buyer's partial objection, and the rule that every stored byte of a fetched page is text the validator fetched itself. Its record, the dispute regression arc included, remains readable there. |
@@ -73,7 +74,7 @@ anywhere will outlive the moment.
 ## 4. Verify the deployed bytes match this source
 
 ```bash
-python scripts/verify_deployment.py 0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8
+python scripts/verify_deployment.py 0xF9bF8e95d61e90b6077A40c344121890ED2D62e3
 ```
 
 Reads the live code back, compares character for character, checks the
@@ -83,9 +84,9 @@ surface. Exit code 0 only if all three hold.
 Verified for the current deployment:
 
 ```text
-  code      BYTE-MATCH (78236 characters)
-  version   0.1.1 on-chain, 0.1.1 in the source header
-  schema    8 view, 18 write, 3 payable (challenge, fund, repay)
+  code      BYTE-MATCH (137619 characters)
+  version   0.3.0 on-chain, 0.3.0 in the source header
+  schema    11 view, 26 write, 4 payable (challenge, fund, pay_recourse, repay)
 ```
 
 ## 5. Wire the frontend

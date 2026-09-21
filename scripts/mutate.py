@@ -237,8 +237,14 @@ MUTATIONS = [
     ("DEPTH settle: negative seller share behind the fee table bounds",
      "if seller_total < 0:",
      "if False:"),
-    ("DEPTH lapse: the status restore behind the walls that freeze status "
-     "while a challenge is open",
+    # This entry used to say the walls "freeze status while a challenge is
+    # open". They do not: repayment and default both move it, and believing
+    # otherwise hid a lapse that put FUNDED back over REPAID. What is true is
+    # narrower. Of the statuses a lapse may still restore, none can change
+    # under an open challenge (promotion, funding and re-commitment are all
+    # refused), so the restore writes back the value already there.
+    ("DEPTH lapse: restoring a status that an open challenge cannot have "
+     "changed",
      'inv.status = snap.get("status", inv.status)',
      'pass'),
     ("DEPTH equivalence: the finding ladder behind the derived-field "
@@ -553,16 +559,16 @@ MUTATIONS = [
             raise gl.vm.UserError(f"{ERROR_EXPECTED} the ruling's window is still open")""",
      ""),
     ("default: the buyer's own proof names the seller (the floor)",
-     """        return finding if any(a != "BUYER" for a in named) else "UNRESOLVED\"""",
+     """        return finding if any(a in ("SELLER", "PROVIDER") for a in named) else "UNRESOLVED\"""",
      "        return finding"),
     ("default: the seller's own documents name the buyer (the mirror)",
-     """        if buyer_acked or any(a != "SELLER" for a in named):
+     """        if buyer_acked or any(a in ("BUYER", "PROVIDER") for a in named):
             return finding
         return "UNRESOLVED\"""",
      "        return finding"),
     ("default: the countersignature no longer carries a default",
-     """        if buyer_acked or any(a != "SELLER" for a in named):""",
-     """        if any(a != "SELLER" for a in named):"""),
+     """        if buyer_acked or any(a in ("BUYER", "PROVIDER") for a in named):""",
+     """        if any(a in ("BUYER", "PROVIDER") for a in named):"""),
     # Behind the floor itself, which looks each named item up by author and
     # so ignores any id that is not on the record. Filtering first keeps the
     # stored ruling honest about what stood behind it.
@@ -660,13 +666,31 @@ MUTATIONS = [
      """                text = it["content"]
                 rows.append({"id": it["id"], "side": f["side"], "kind": "DEFAULT FILING","""),
 
+    ("lapse: the snapshot is restored over money that moved since",
+     '''        if inv.status not in ("REPAID", "SETTLEMENT_READY", "SETTLED",
+                              "DEFAULTED", "RECOURSE_SETTLED"):
+            inv.status = snap.get("status", inv.status)''',
+     '''        if True:
+            inv.status = snap.get("status", inv.status)'''),
+
+    ("default: a challenger's paper names the seller (the buyer may be the challenger)",
+     '''        return finding if any(a in ("SELLER", "PROVIDER") for a in named) else "UNRESOLVED"''',
+     '''        return finding if any(a in ("SELLER", "PROVIDER", "CHALLENGER") for a in named) else "UNRESOLVED"'''),
+    ("default: a challenger's item is read as the seller's own",
+     '''                who = ("CHALLENGER" if str(it["label"]).startswith(CHALLENGER_TAG)
+                       else "SELLER")''',
+     '''                who = "SELLER"'''),
+    ("evidence: the seller wears the challenger's label",
+     "            if label.upper().startswith(CHALLENGER_TAG):",
+     "            if False:"),
+
     # ── the accept-control: must stay GREEN ──
     ("CONTROL (must survive)",
      '"version": "0.3.0",',
      '"version": "0.0.9",  # control'),
 ]
 
-EXPECTED_MIN_GUARDS = 146
+EXPECTED_MIN_GUARDS = 150
 
 
 def run_suite(cwd: pathlib.Path) -> bool:

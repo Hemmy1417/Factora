@@ -1,18 +1,18 @@
-FACTORA v0.3.0 LIVE RUN  ·  0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8  ·  RESUME=1790003604
+FACTORA v0.3.0 LIVE RUN  ·  0xF9bF8e95d61e90b6077A40c344121890ED2D62e3  ·  RESUME=1790011265
 
   ok    the deployed contract reports version 0.3.0  (0.3.0)
 Sitting one. Two receivables, judged, promoted and funded
-  ok    X: registered as fac-000001  (INV-V030-X-1790003604)
-  ..    X: the panel ruled: round 1 landed (agree,agree,disagree,idle,agree)
-  ok    Y: registered as fac-000002  (INV-V030-Y-1790003604)
-  ..    Y: the panel ruled: round 1 landed (agree,agree,disagree,agree,disagree)
-  ..    X: window closes in 798s
+  ok    X: registered as fac-000001  (INV-V030-X-1790011265)
+  ..    X: the panel ruled: round 1 landed (agree,agree,idle,agree,idle)
+  ok    Y: registered as fac-000002  (INV-V030-Y-1790011265)
+  ..    Y: the panel ruled: round 1 landed (agree,disagree,idle,agree,agree)
+  ..    X: window closes in 714s
   ok    X: funded  (FUNDED · advance 0.0600 GEN)
-  ..    Y: window closes in 61s
-  ok    Y: funded  (FUNDED · advance 0.0750 GEN)
+  ..    Y: window closes in 145s
+  ok    Y: funded  (FUNDED · advance 0.0600 GEN)
   ok    refused: X: marking a default before the day of grace has passed  (receipt ERROR)
   ok    refused: X: filing default evidence on an invoice that has not defaulted  (receipt ERROR)
 
 SITTING ONE COMPLETE.
-Both invoices fall due at 2026-09-21T16:28:24.000Z and can be marked defaulted after
-2026-09-22T16:29:24.000Z. Come back then:  RESUME=1790003604 node scripts/live-v030.mjs 0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8
+Both invoices fall due at 2026-09-21T18:36:05.000Z and can be marked defaulted after
+2026-09-22T18:37:05.000Z. Come back then:  RESUME=1790011265 node scripts/live-v030.mjs 0xF9bF8e95d61e90b6077A40c344121890ED2D62e3

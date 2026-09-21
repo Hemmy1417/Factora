@@ -20,6 +20,8 @@ jobs:
         run: |
           genvm-lint download
           genvm-lint check contracts/factora.py --json
+      - name: the app composes only writes the contract has
+        run: python scripts/check_app_writes.py
       - name: mutation sweep
         run: python scripts/mutate.py
 
@@ -46,4 +48,4 @@ jobs:
       - name: build
         run: npm run build
         env:
-          NEXT_PUBLIC_CONTRACT_ADDRESS: "0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8"
+          NEXT_PUBLIC_CONTRACT_ADDRESS: "0xF9bF8e95d61e90b6077A40c344121890ED2D62e3"

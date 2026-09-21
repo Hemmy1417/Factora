@@ -8,7 +8,7 @@
 
 A business is owed money through a legitimate invoice and needs the capital now. A factoring provider will advance it - if the obligation is real. That fact lives in fragmented, unstructured evidence: the invoice, the purchase order, the delivery trail, the buyer's standing, the disputes nobody mentions. No price feed can settle it. Factora commits that evidence on-chain, puts it to a validator panel that judges it under consensus, and converts the judgment into bounded financing terms through a code table the model never touches.
 
-Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8`](https://explorer-studio.genlayer.com/address/0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8) on GenLayer StudioNet
+Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0xF9bF8e95d61e90b6077A40c344121890ED2D62e3`](https://explorer-studio.genlayer.com/address/0xF9bF8e95d61e90b6077A40c344121890ED2D62e3) on GenLayer StudioNet
 
 ## What it is
 
@@ -104,11 +104,11 @@ The panel returns a finding and the items behind it. Whether that finding can na
 
 | Panel says | Stands when | Otherwise |
 |---|---|---|
-| `SELLER_RECOURSE` | a named item was NOT written by the buyer: the seller's own record, the seller's filing, or the provider's | `UNRESOLVED` |
-| `BUYER_DEFAULT` | the buyer's wallet countersigned the debt on-chain, or a named item was NOT written by the seller | `UNRESOLVED` |
+| `SELLER_RECOURSE` | a named item was written by the seller (its own record or filing, an admission) or by the provider | `UNRESOLVED` |
+| `BUYER_DEFAULT` | the buyer's wallet countersigned the debt on-chain, or a named item was written by the buyer (an admission) or by the provider | `UNRESOLVED` |
 | `UNRESOLVED` | always | - |
 
-A buyer who says "I paid the seller directly" and files the only proof of it has corroborated nothing. Neither has a seller pointing at its own paperwork against a buyer who never countersigned. Both what the panel said and what the contract recorded are stored, so a reader can see the floor at work.
+Items a challenger added to the record corroborate neither finding: anyone but the seller may challenge, the buyer included, and the record does not keep which wallet it was. A buyer who says "I paid the seller directly" and files the only proof of it has corroborated nothing. Neither has a seller pointing at its own paperwork against a buyer who never countersigned. Both what the panel said and what the contract recorded are stored, so a reader can see the floor at work.
 
 ## Lifecycle
 
@@ -153,8 +153,8 @@ The model recommends nothing in basis points and does not even name the decision
 | | |
 |---|---|
 | Network | GenLayer StudioNet (chain `61999`) |
-| Address | `0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8` |
-| Deploy tx | `0x1dc4d48bc0e67299db676bf612a416b3b517a54a757e85c9da770e8e890af741` |
+| Address | `0xF9bF8e95d61e90b6077A40c344121890ED2D62e3` |
+| Deploy tx | `0x1177e00150b316673a8c89c8a8ee40d6727606ac29b7e6a9dcf63793e99838e3` |
 | Version | `0.3.0` (read live from `get_config`) |
 | Source | `contracts/factora.py` |
 | Runner | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` (pinned) |
@@ -378,13 +378,16 @@ without touching funded terms, settlement to custody zero) remains recorded
 on v0.1.1 at `0xE2B4A382b040619779286fa808138A423B10C88a` — instruments do
 not migrate, and its transcript lives in that deployment's git history.
 
-Test gates behind the transcripts: 209 direct tests (nine of them the
+Test gates behind the transcripts: 214 direct tests (nine of them the
 dispute-invalidation regressions, fifty-seven the v0.2.0 identity and credit
-rules, thirty-three the v0.3.0 default rules), a 146-guard mutation sweep with
-11 declared-depth guards and a green accept-control, 48 frontend tests,
-genvm-lint clean. The sweep runs in CI on every push; its first full run on
-v0.3.0 found three guards no test failed for, and each now has the test that
-kills it or a stated reason it sits behind another.
+rules, thirty-six the v0.3.0 default rules, two the lapse that must not undo
+money), a 150-guard mutation sweep with 11 declared-depth guards and a green
+accept-control, 48 frontend tests, genvm-lint clean. The sweep runs in CI on
+every push; its first full run on v0.3.0 found three guards no test failed
+for, and each now has the test that kills it or a stated reason it sits
+behind another. `scripts/check_app_writes.py`, also in CI, checks that every
+write the app composes matches the contract's signature: all 26 are
+reachable, with matching arguments and payment flags.
 
 ## Tech stack
 
@@ -402,9 +405,9 @@ kills it or a stated reason it sits behind another.
 ```text
 factora/
 ├── contracts/factora.py          the intelligent contract (the only authority)
-├── tests/direct/                 209 direct tests + strict genlayer stub
+├── tests/direct/                 214 direct tests + strict genlayer stub
 ├── scripts/
-│   ├── mutate.py                 146-guard mutation sweep + accept-control
+│   ├── mutate.py                 150-guard mutation sweep + accept-control
 │   └── verify_deployment.py      byte-compares live code against this source
 ├── web/
 │   ├── app/                      the prospectus (pages + components)
@@ -429,7 +432,7 @@ cd web && npm install && npm test && npm run build
 ```
 
 ```bash
-python scripts/verify_deployment.py 0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8
+python scripts/verify_deployment.py 0xF9bF8e95d61e90b6077A40c344121890ED2D62e3
 ```
 
 Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`, then `npm run dev`.
@@ -440,8 +443,9 @@ Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`
 - Reserve-at-acceptance is not needed: there is no shared pool - each position escrows its own advance, and the split is conserved by assertion before it is stored.
 - Prompt-injection surface: both fence delimiters are sanitized out of every party string and fetched page; URLs are printable-ASCII with the header-forging characters refused; a forged fence arrives visibly defused and weighs against its supplier.
 - The subject of the judgment does not control its strongest identity evidence: the buyer countersignature and the buyer dispute are signed by the buyer's own wallet, and declared-only records cap the advance in code.
+- A lapse restores an assessment's standing and never undoes money. Repayment, default and recourse stay open while a challenge is, and a status any of them wrote survives the lapse. (Until v0.3.0's pre-submission debug it did not: a repayment made under a challenge that later went stale was put back to FUNDED with the buyer's payment stranded in custody. Every earlier deployment carries that defect.)
 - Challenges snapshot what they challenge; a lapse restores exactly that snapshot - then re-applies the dispute-invalidation rule, so a stale challenge is not a way to sneak a repudiated verdict back into effect - and an unresolved challenge has a permissionless wall-clock exit.
-- Known limitation, stated: the MVP holds no seller collateral, so a default records the provider's loss - it cannot manufacture a recovery. Off-chain document authenticity (a forged PDF pasted as text) is bounded by the countersignature cap, not solved.
+- Known limitation, stated: the protocol holds no seller collateral, so it cannot manufacture a recovery. A default ruling names who answers for the loss; it cannot make them pay. `pay_recourse` is the liable seller's exit and `repay` the liable buyer's, and until one is used the only pressure is the finding that follows the wallet into its other invoices. Off-chain document authenticity (a forged PDF pasted as text) is bounded by the countersignature cap, not solved.
 
 ### Trust model, stated plainly
 
