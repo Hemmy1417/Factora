@@ -422,7 +422,11 @@ MUTATIONS = [
      """        elif (inv.status in ("FUNDED", "REPAID")
               and (self._dispute_open(inv) or self._credit_open(inv))):""",
      """        elif inv.status in ("FUNDED", "REPAID"):"""),
-    ("credit: a larger claim passes as the one the panel read",
+    # Behind the epoch check below it: a filing's epoch already identifies it,
+    # so a different amount always arrives with a different epoch unless both
+    # filings share one second. The amount is compared anyway, because that
+    # second exists.
+    ("DEPTH credit: a different amount, behind the filing epoch",
      """            if str(d.get("credit_claim_atto", "")) != str(int(inv.credit_claim_atto)):
                 return True""",
      ""),
@@ -503,7 +507,7 @@ MUTATIONS = [
      '"version": "0.0.9",  # control'),
 ]
 
-EXPECTED_MIN_GUARDS = 110
+EXPECTED_MIN_GUARDS = 111
 
 
 def run_suite(cwd: pathlib.Path) -> bool:

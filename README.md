@@ -182,6 +182,98 @@ The model recommends nothing in basis points and does not even name the decision
 
 ## Verified end-to-end
 
+### v0.2.0: each new finding, where it must fire and where it must not
+
+Run against the live v0.2.0 deployment with real GEN. Four receivables, two
+per feature, each pair differing in one fact: the register confirms both
+parties where the documents name them and CONTRADICTS the buyer where they
+name someone else; a contested part is found SUPPORTED where the delivery
+record and a credit note show the shortfall, and NOT_SUPPORTED where the
+record shows full delivery. Seven writes the contract must refuse were sent
+and refused on-chain. The supported claim was then funded, repaid and
+settled on the remainder, conserving to the atto, and custody ended at zero.
+Reproduce it with `node web/scripts/live-v020.mjs <address>`.
+
+Two things the transcript shows and does not hide. One round (control B,
+first attempt) reached no majority: validators who derive a different risk
+class from their own reading refuse the leader's, nothing is written, and
+the round is run again, which the script does and says. And the run was
+resumed once from chain state after the script was taught that retry; case
+A's lines are its on-chain results read back, not judged twice.
+
+```text
+FACTORA v0.2.0 LIVE RUN  ·  0x117b03D79063F4aE882bA16B17398f4Dd49814e1  ·  RESUME=1789999192
+
+  ok    the deployed contract reports version 0.2.0  (0.2.0)
+A. Both parties are in the public register, and the documents name them
+  ok    A: registered as fac-000001  (INV-V020-A-1789999192)
+  ok    refused: A: a stranger naming an entity for the seller  (receipt ERROR)
+  ok    refused: A: an identifier with a wrong check digit  (receipt ERROR)
+  ok    refused: A: the seller naming a second entity  (receipt ERROR)
+  ok    A: the panel ruled
+  ..    A: FINANCEABLE · LOW · score 85 · identity {"buyer":"REGISTERED","seller":"REGISTERED"} · claim NONE
+  ok    A: both parties REGISTERED by the register every validator read
+  ok    A: both register records were read, active and current
+  ok    A: the stored record names the buyer's entity
+  ok    A: no contradiction was raised on a matching record
+
+C. The buyer contests 8 of 40 seats, and the record shows the shortfall
+  ok    C: registered as fac-000002  (INV-V020-C-1789999192)
+  ok    refused: C: the seller filing the buyer's claim  (receipt ERROR)
+  ok    refused: C: a claim that swallows the invoice  (receipt ERROR)
+  ..    C: round 1 landed (agree,idle,disagree,agree,agree)
+  ok    C: the panel ruled
+  ..    C: FINANCEABLE · LOW · score 72 · identity {"buyer":"NONE","seller":"NONE"} · claim SUPPORTED
+  ok    C: the panel found the claim SUPPORTED  (SUPPORTED)
+  ok    C: an examined item stands behind the finding  (EV-003,EV-005)
+  ok    C: the remainder is what is financed and what is owed  (0.0800 GEN / 0.0800 GEN)
+  ok    C: a partial objection did not hold the whole record at review  (FINANCEABLE)
+
+B. CONTROL: the same identifiers, but the documents name a different buyer
+  ok    B: registered as fac-000003  (INV-V020-B-1789999192)
+  ..    B: round 1 reached no majority (idle,disagree,disagree,disagree,idle); nothing was written, running it again
+  ..    B: round 2 landed (agree,agree,disagree,agree,disagree)
+  ok    B: the panel ruled
+  ..    B: REVIEW_REQUIRED · HIGH · score 85 · identity {"buyer":"CONTRADICTED","seller":"REGISTERED"} · claim NONE
+  ok    B: the buyer was NOT registered on a record naming someone else  (CONTRADICTED)
+  ok    B: the register contradicts the named buyer
+  ok    B: no terms for a record whose buyer the register contradicts  (REVIEW_REQUIRED)
+  ok    B: the seller, named correctly, is still REGISTERED
+
+D. CONTROL: the same claim, but the record shows all 40 seats delivered
+  ok    D: registered as fac-000004  (INV-V020-D-1789999192)
+  ..    D: round 1 landed (agree,idle,agree,disagree,agree)
+  ok    D: the panel ruled
+  ..    D: FINANCEABLE · MEDIUM · score 80 · identity {"buyer":"NONE","seller":"NONE"} · claim NOT_SUPPORTED
+  ok    D: the claim was NOT supported on a record that shows full delivery  (NOT_SUPPORTED)
+  ok    D: the contested part is still not financed  (0.0800 GEN)
+  ok    D: the full invoice is still owed  (0.1000 GEN)
+
+The challenge windows lapse; anyone promotes
+  ok    A: the top table applies: countersigned, both parties registered  (FINANCEABLE · REGISTERED · 8500 bps)
+
+C. Funded, repaid and settled on the remainder
+  ok    C: countersigned on keys alone, so the middle table at the judged risk  (KEYS_ONLY · LOW · 7500 bps)
+  ok    C: the advance is priced on the remainder  (0.0600 GEN)
+  ok    refused: C: funding the advance of the uncontested invoice  (receipt ERROR)
+  ok    refused: C: repaying the full invoice when the remainder is owed  (receipt ERROR)
+  ok    C: the split conserves to the atto  (provider 0.0624 GEN · seller 0.0176 GEN)
+  ok    SELLER claimed  (0.0776 GEN)
+  ok    PROVIDER claimed  (0.0624 GEN)
+  ok    custody is zero: every atto left through claim()  ({"invoices":4,"funded":1,"settled":1,"escrow_atto":"0"})
+
+EVERY STEP PASSED
+```
+
+The first v0.2.0 deployment lasted an hour. Its own control case found that a
+panel shown a credit claim and NO dispute named the dispute conflict anyway,
+which priced a partial objection as a repudiation. The fix and the superseded
+address are in `docs/DEPLOYMENT.md`. Control D above is that same record on
+the corrected contract: `FINANCEABLE · MEDIUM`, where it had been held at
+review.
+
+### v0.1.2: the stewards' dispute regression
+
 The stewards' regression — a buyer dispute filed AFTER the panel ruled — ran
 against the live v0.1.2 deployment with real GEN: the mid-window dispute
 struck the pending verdict on-chain, finalization and funding were probed and
@@ -246,10 +338,10 @@ without touching funded terms, settlement to custody zero) remains recorded
 on v0.1.1 at `0xE2B4A382b040619779286fa808138A423B10C88a` — instruments do
 not migrate, and its transcript lives in that deployment's git history.
 
-Test gates behind the transcript: 119 direct tests (nine of them the
-dispute-invalidation regressions), a 62/62 mutation sweep with 7
-declared-depth guards and a green accept-control, 35 frontend tests,
-genvm-lint clean.
+Test gates behind both transcripts: 176 direct tests (nine of them the
+dispute-invalidation regressions, fifty-seven the v0.2.0 identity and credit
+rules), a 111/111 mutation sweep with 10 declared-depth guards and a green
+accept-control, 45 frontend tests, genvm-lint clean.
 
 ## Tech stack
 
@@ -267,9 +359,9 @@ genvm-lint clean.
 ```text
 factora/
 ├── contracts/factora.py          the intelligent contract (the only authority)
-├── tests/direct/                 109 direct tests + strict genlayer stub
+├── tests/direct/                 176 direct tests + strict genlayer stub
 ├── scripts/
-│   ├── mutate.py                 56-guard mutation sweep + accept-control
+│   ├── mutate.py                 111-guard mutation sweep + accept-control
 │   └── verify_deployment.py      byte-compares live code against this source
 ├── web/
 │   ├── app/                      the prospectus (pages + components)

@@ -1,0 +1,19 @@
+FACTORA v0.2.0 LIVE RUN  ·  0x117b03D79063F4aE882bA16B17398f4Dd49814e1  ·  RESUME=1789999192
+
+  ok    the deployed contract reports version 0.2.0  (0.2.0)
+A. Both parties are in the public register, and the documents name them
+  ok    A: registered as fac-000001  (INV-V020-A-1789999192)
+  ok    refused: A: a stranger naming an entity for the seller  (receipt ERROR)
+  ok    refused: A: an identifier with a wrong check digit  (receipt ERROR)
+  ok    refused: A: the seller naming a second entity  (receipt ERROR)
+  ..    A: FINANCEABLE · LOW · score 85 · identity {"buyer":"REGISTERED","seller":"REGISTERED"} · claim NONE
+  ..    A: The seller and buyer identities are supported by the on-chain LEI attestations and active GLEIF registry records, and the buyer is further strongly supported by its on-chain countersignature of the obligation. EV-001, EV-002, and EV-003 are coherent on parties, amount (0.100 GEN / 100000000000000000 atto-GEN), goods/services, and timing (issue 2026-09-01, net 14 days consistent with the due epoch), with no material contradictions; EV-004 adds favorable but seller-declared payment history context.
+  ok    A: both parties REGISTERED by the register every validator read
+  ok    A: both register records were read, active and current
+  ok    A: the stored record names the buyer's entity
+  ok    A: no contradiction was raised on a matching record
+
+C. The buyer contests 8 of 40 seats, and the record shows the shortfall
+  ok    C: registered as fac-000002  (INV-V020-C-1789999192)
+  ok    refused: C: the seller filing the buyer's claim  (receipt ERROR)
+  ok    refused: C: a claim that swallows the invoice  (receipt ERROR)

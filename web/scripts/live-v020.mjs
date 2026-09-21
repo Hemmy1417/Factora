@@ -177,9 +177,32 @@ async function attestBoth(tag, id) {
     async () => (await inv(id)).buyer_entity !== null);
 }
 
+/** A round that reaches no majority writes nothing, by design: validators
+ *  who derive a different risk class from their own reading refuse the
+ *  leader's, and the record stays COMMITTED for anyone to try again. The run
+ *  retries such a round and says so, rather than waiting on a verdict that
+ *  was never recorded. The transaction is followed by hash, which costs no
+ *  contract reads. */
 async function judge(tag, id) {
-  await step(`${tag}: the panel ruled`, "SELLER", "request_assessment", [id],
-    async () => (await inv(id)).status !== "COMMITTED", 0n, 90);
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    if ((await inv(id)).status !== "COMMITTED") break;
+    const hash = await write("SELLER", "request_assessment", [id]);
+    let votes = "";
+    for (let i = 0; i < 90; i++) {
+      await sleep(10_000);
+      let t;
+      try { t = await clientFor("SELLER").getTransaction({ hash }); } catch { continue; }
+      const st = String(t?.statusName ?? "");
+      if (["ACCEPTED", "FINALIZED", "UNDETERMINED", "CANCELED", "LEADER_TIMEOUT"].includes(st)) {
+        votes = Object.values(t?.consensus_data?.votes ?? {}).join(",");
+        break;
+      }
+    }
+    await sleep(8000);
+    if ((await inv(id)).status !== "COMMITTED") { info(`${tag}: round ${attempt} landed (${votes})`); break; }
+    info(`${tag}: round ${attempt} reached no majority (${votes}); nothing was written, running it again`);
+  }
+  expect((await inv(id)).status !== "COMMITTED", `${tag}: the panel ruled`);
   const a = await read("get_assessment", [id, 1]);
   info(`${tag}: ${a.decision} · ${a.risk} · score ${a.score} · identity ${JSON.stringify(a.identity)} · claim ${a.credit_claim_finding}`);
   info(`${tag}: ${a.reason}`);

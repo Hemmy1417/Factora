@@ -1,0 +1,76 @@
+FACTORA v0.2.0 LIVE RUN  ·  0x117b03D79063F4aE882bA16B17398f4Dd49814e1  ·  RESUME=1789999192
+
+  ok    the deployed contract reports version 0.2.0  (0.2.0)
+A. Both parties are in the public register, and the documents name them
+  ..    A: registered: already on chain
+  ok    A: registered as fac-000001  (INV-V020-A-1789999192)
+  ..    A: evidence v1 committed: already on chain
+  ..    A: countersigned: already on chain
+  ok    refused: A: a stranger naming an entity for the seller  (receipt ERROR)
+  ok    refused: A: an identifier with a wrong check digit  (receipt ERROR)
+  ..    A: the seller named its entity: already on chain
+  ..    A: the buyer named its entity: already on chain
+  ok    refused: A: the seller naming a second entity  (receipt ERROR)
+  ok    A: the panel ruled
+  ..    A: FINANCEABLE · LOW · score 85 · identity {"buyer":"REGISTERED","seller":"REGISTERED"} · claim NONE
+  ..    A: The seller and buyer identities are supported by the on-chain LEI attestations and active GLEIF registry records, and the buyer is further strongly supported by its on-chain countersignature of the obligation. EV-001, EV-002, and EV-003 are coherent on parties, amount (0.100 GEN / 100000000000000000 atto-GEN), goods/services, and timing (issue 2026-09-01, net 14 days consistent with the due epoch), with no material contradictions; EV-004 adds favorable but seller-declared payment history context.
+  ok    A: both parties REGISTERED by the register every validator read
+  ok    A: both register records were read, active and current
+  ok    A: the stored record names the buyer's entity
+  ok    A: no contradiction was raised on a matching record
+
+C. The buyer contests 8 of 40 seats, and the record shows the shortfall
+  ..    C: registered: already on chain
+  ok    C: registered as fac-000002  (INV-V020-C-1789999192)
+  ..    C: evidence v1 committed: already on chain
+  ..    C: countersigned: already on chain
+  ok    refused: C: the seller filing the buyer's claim  (receipt ERROR)
+  ok    refused: C: a claim that swallows the invoice  (receipt ERROR)
+  ..    C: the claim is on the record: already on chain
+  ..    C: round 1 landed (agree,idle,disagree,agree,agree)
+  ok    C: the panel ruled
+  ..    C: FINANCEABLE · LOW · score 72 · identity {"buyer":"NONE","seller":"NONE"} · claim SUPPORTED
+  ..    C: EV-003, a seller-declared delivery receipt signed by the buyer's own licence administrator, concedes that 8 of 40 seats were not provisioned, and EV-005 is a seller-issued credit note CN-0412 reducing the payable amount by exactly 0.020 GEN to 0.080 GEN — both items independently corroborate the buyer's credit claim of 20000000000000000 atto-GEN. The underlying transaction is coherent across invoice, PO, and delivery record, and the buyer's on-chain countersignature provides strong contract-verified support for buyer identity and standing; the financeable amount should be treated as 8000000000
+  ok    C: the panel found the claim SUPPORTED  (SUPPORTED)
+  ok    C: an examined item stands behind the finding  (EV-003,EV-005)
+  ok    C: the remainder is what is financed and what is owed  (0.0800 GEN / 0.0800 GEN)
+  ok    C: a partial objection did not hold the whole record at review  (FINANCEABLE)
+
+B. CONTROL: the same identifiers, but the documents name a different buyer
+  ok    B: registered as fac-000003  (INV-V020-B-1789999192)
+  ..    B: round 1 reached no majority (idle,disagree,disagree,disagree,idle); nothing was written, running it again
+  ..    B: round 2 landed (agree,agree,disagree,agree,disagree)
+  ok    B: the panel ruled
+  ..    B: REVIEW_REQUIRED · HIGH · score 85 · identity {"buyer":"CONTRADICTED","seller":"REGISTERED"} · claim NONE
+  ..    B: The seller is consistently identified as 'Global Legal Entity Identifier Foundation' which matches the registry record. The buyer is acknowledged on-chain and has made previous payments, but the invoices and related documents refer to 'Harbour Freight Logistics SA', which does not match the registry-recorded buyer 'Bloomberg Finance L.P.', creating a PARTY_MISMATCH. The transaction itself is coherent in terms and supported by delivery and payment history.
+  ok    B: the buyer was NOT registered on a record naming someone else  (CONTRADICTED)
+  ok    B: the register contradicts the named buyer
+  ok    B: no terms for a record whose buyer the register contradicts  (REVIEW_REQUIRED)
+  ok    B: the seller, named correctly, is still REGISTERED
+
+D. CONTROL: the same claim, but the record shows all 40 seats delivered
+  ok    D: registered as fac-000004  (INV-V020-D-1789999192)
+  ..    D: round 1 landed (agree,idle,agree,disagree,agree)
+  ok    D: the panel ruled
+  ..    D: FINANCEABLE · MEDIUM · score 80 · identity {"buyer":"NONE","seller":"NONE"} · claim NOT_SUPPORTED
+  ..    D: Seller and buyer identities supported by on-chain buyer acknowledgement plus consistent seller-declared documents EV-001-EV-004. Transaction coherent on amounts, dates, order and prior payments. Credit claim for 8 unactivated seats is directly contradicted by EV-003 activation record signed for all 40 seats.
+  ok    D: the claim was NOT supported on a record that shows full delivery  (NOT_SUPPORTED)
+  ok    D: the contested part is still not financed  (0.0800 GEN)
+  ok    D: the full invoice is still owed  (0.1000 GEN)
+
+The challenge windows lapse; anyone promotes
+  ..    A: window closes in 60s
+  ..    C: window closes in 60s
+  ok    A: the top table applies: countersigned, both parties registered  (FINANCEABLE · REGISTERED · 8500 bps)
+
+C. Funded, repaid and settled on the remainder
+  ok    C: countersigned on keys alone, so the middle table at the judged risk  (KEYS_ONLY · LOW · 7500 bps)
+  ok    C: the advance is priced on the remainder  (0.0600 GEN)
+  ok    refused: C: funding the advance of the uncontested invoice  (receipt ERROR)
+  ok    refused: C: repaying the full invoice when the remainder is owed  (receipt ERROR)
+  ok    C: the split conserves to the atto  (provider 0.0624 GEN · seller 0.0176 GEN)
+  ok    SELLER claimed  (0.0776 GEN)
+  ok    PROVIDER claimed  (0.0624 GEN)
+  ok    custody is zero: every atto left through claim()  ({"invoices":4,"funded":1,"settled":1,"escrow_atto":"0"})
+
+EVERY STEP PASSED
