@@ -118,3 +118,26 @@ the panel all of this honestly, including what the sanitizer actually does.
 page can be excluded, never examined; every count lands in the dossier; and
 the dossier's rows carry digests over the exact bytes stored, so the
 examined record stays auditable forever.
+
+## The default ruling (v0.3.0)
+
+A second, separate judgment, asked only on a defaulted invoice.
+
+**Given:** the chain facts (what was owed and when, the advance, that no
+repayment reached the contract, whether the buyer countersigned, any open
+dispute or credit claim), the committed documents of the assessed version as
+`ORIGINAL RECORD`, and every `DEFAULT FILING`, each fence naming the side that
+wrote it. Original pages fetched at assessment are not refetched.
+
+**Returned:** `default_finding` (`BUYER_DEFAULT`, `SELLER_RECOURSE`,
+`UNRESOLVED`), the ids of the items behind it, and reasoning, which comes
+first in the schema. Each finding is phrased as the observable fact required.
+
+**Derived in code:** `_default_finding` applies the floor and its mirror (see
+SECURITY.md). Items the panel names that are not on the record are dropped
+before the floor runs.
+
+**Compared:** the recorded finding, exactly, after the floor; the record rows
+(ids, authors, digests), exactly, because they are storage and identical for
+every node; and the leader's own consistency, by re-applying the floor to the
+leader's stated word and items. Prose is never compared.

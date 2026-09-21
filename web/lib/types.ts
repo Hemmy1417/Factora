@@ -40,6 +40,15 @@ export type Invoice = {
   credit_claim_text: string;
   credit_claim_epoch: number;
   credit_claim_withdrawn_epoch: number;
+  /** default adjudication (v0.3.0) */
+  default_filings_count: number;
+  default_ruled_filings: number;
+  default_ruling_count: number;
+  default_pending: { n: number; finding: string } | null;
+  default_pending_until: number;
+  default_liable: string;
+  recourse_atto: string;
+  recourse_paid_epoch: number;
   provider: string;
   funded_epoch: number;
   funded_advance_atto: string;

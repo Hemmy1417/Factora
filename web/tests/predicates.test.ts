@@ -25,6 +25,9 @@ const base = (over: Partial<Invoice> = {}): Invoice => ({
   identity_tier: "", seller_entity: null, buyer_entity: null,
   credit_claim_atto: "0", credit_claim_text: "", credit_claim_epoch: 0,
   credit_claim_withdrawn_epoch: 0,
+  default_filings_count: 0, default_ruled_filings: 0, default_ruling_count: 0,
+  default_pending: null, default_pending_until: 0, default_liable: "",
+  recourse_atto: "0", recourse_paid_epoch: 0,
   ...over,
 });
 
@@ -106,5 +109,22 @@ describe("v0.2.0 predicates", () => {
     expect(await P.entityAttested("fac-000001", "seller", onlySeller)()).toBe(true);
     expect(await P.entityAttested("fac-000001", "buyer", onlySeller)()).toBe(false);
     expect(await P.entityAttested("fac-000001", "buyer", readers(null))()).toBe(false);
+  });
+});
+
+describe("v0.3.0 predicates", () => {
+  it("defaultFilingsAbove is anchored to the count the caller saw", async () => {
+    expect(await P.defaultFilingsAbove("fac-000001", 1, readers(base({ default_filings_count: 2 })))()).toBe(true);
+    expect(await P.defaultFilingsAbove("fac-000001", 2, readers(base({ default_filings_count: 2 })))()).toBe(false);
+  });
+  it("defaultRulingsAbove waits for a NEW ruling, not the last one", async () => {
+    expect(await P.defaultRulingsAbove("fac-000001", 1, readers(base({ default_ruling_count: 1 })))()).toBe(false);
+    expect(await P.defaultRulingsAbove("fac-000001", 1, readers(base({ default_ruling_count: 2 })))()).toBe(true);
+  });
+  it("defaultRulingSettled is false while a ruling waits out its window", async () => {
+    expect(await P.defaultRulingSettled("fac-000001",
+      readers(base({ default_pending: { n: 1, finding: "BUYER_DEFAULT" } })))()).toBe(false);
+    expect(await P.defaultRulingSettled("fac-000001", readers(base()))()).toBe(true);
+    expect(await P.defaultRulingSettled("fac-000001", readers(null))()).toBe(false);
   });
 });

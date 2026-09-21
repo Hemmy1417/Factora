@@ -297,7 +297,8 @@ def c(module):
     as_(module, SELLER, 0)
     inst = module.Factora()
     for name in ("invoices", "identity_registry", "manifests", "assessments",
-                 "actor_index", "claimable"):
+                 "actor_index", "claimable",
+                 "default_filings", "default_rulings", "liabilities"):
         setattr(inst, name, module.TreeMap())
     inst.invoice_ids = _DynArray._from_storage()
     return inst

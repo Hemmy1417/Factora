@@ -37,6 +37,8 @@ DEFAULT_RPC = "https://studio.genlayer.com/api"
 EXPECTED_VIEWS = {
     "get_assessment", "get_claimable", "get_config", "get_evidence",
     "get_invoice", "get_invoices", "get_invoices_for", "get_stats",
+    # v0.3.0
+    "get_default_filing", "get_default_ruling", "get_liabilities",
 }
 EXPECTED_WRITES = {
     "acknowledge_invoice", "cancel_invoice", "challenge", "challenge_lapse",
@@ -45,10 +47,13 @@ EXPECTED_WRITES = {
     "withdraw_buyer_dispute",
     # v0.2.0
     "attest_entity", "file_credit_claim", "withdraw_credit_claim",
+    # v0.3.0
+    "file_default_evidence", "request_default_ruling",
+    "finalize_default_ruling", "pay_recourse",
     "fund", "mark_defaulted", "mark_expired", "prepare_settlement",
     "reassess", "repay", "request_assessment",
 }
-EXPECTED_PAYABLE = {"challenge", "fund", "repay"}
+EXPECTED_PAYABLE = {"challenge", "fund", "pay_recourse", "repay"}
 
 
 def run(args: list[str]) -> str:

@@ -130,3 +130,26 @@ export const entityAttested =
     const v = await inv(r, id);
     return !!v && (side === "seller" ? v.seller_entity : v.buyer_entity) !== null;
   };
+
+/** Anchored to the count the caller saw, so somebody else's filing landing
+ *  first cannot be mistaken for the caller's own. */
+export const defaultFilingsAbove =
+  (id: string, seen: number, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.default_filings_count > seen;
+  };
+
+export const defaultRulingsAbove =
+  (id: string, seen: number, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.default_ruling_count > seen;
+  };
+
+export const defaultRulingSettled =
+  (id: string, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.default_pending === null;
+  };

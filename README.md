@@ -8,7 +8,7 @@
 
 A business is owed money through a legitimate invoice and needs the capital now. A factoring provider will advance it - if the obligation is real. That fact lives in fragmented, unstructured evidence: the invoice, the purchase order, the delivery trail, the buyer's standing, the disputes nobody mentions. No price feed can settle it. Factora commits that evidence on-chain, puts it to a validator panel that judges it under consensus, and converts the judgment into bounded financing terms through a code table the model never touches.
 
-Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0x117b03D79063F4aE882bA16B17398f4Dd49814e1`](https://explorer-studio.genlayer.com/address/0x117b03D79063F4aE882bA16B17398f4Dd49814e1) on GenLayer StudioNet
+Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8`](https://explorer-studio.genlayer.com/address/0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8) on GenLayer StudioNet
 
 ## What it is
 
@@ -44,6 +44,14 @@ Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: 
 4. Contest PART of the invoice - a short delivery, a credit note - without denying the rest. The contested part stops being financed the moment the claim is filed; a judgment decides whether it is still owed. Like a dispute, a claim filed after a judgment strikes that judgment's effect, and it can be withdrawn.
 5. Name your own legal entity in the public register (see the seller's step 4).
 6. Repay the amount owed under the effective judgment, in full, from the buyer wallet only.
+
+### When an invoice goes unpaid
+
+1. A day after the due date, anyone may mark the default. The buyer can still repay at any time, which ends the matter.
+2. The seller, the buyer and the capital provider may each put their account on the record, twice each. Every item reaches the panel labelled with the side that wrote it.
+3. Any of the three asks the panel who answers for it: the buyer, who did not pay a valid debt; the seller, whose invoice was not what it declared (nothing delivered, goods rejected for cause, the buyer had already paid the seller directly); or nobody yet.
+4. The ruling waits out the invoice's challenge window. A filing in that window drops it, and the next ruling reads everything. After the window anyone makes it effective.
+5. A seller found liable returns the advance plus the provider's fee, exactly, and the instrument closes. A buyer found liable repays the invoice and it settles normally. Until then the finding follows the wallet: every other invoice it is party to is told, and priced one risk class worse.
 
 ### For anyone
 
@@ -90,6 +98,18 @@ A party names an identifier and nothing else. The contract composes the register
 
 A `SUPPORTED` or `NOT_SUPPORTED` finding with no examined item named behind it falls to `INSUFFICIENT` in code: the buyer's word alone cannot cut the debt, and the seller's silence alone cannot mark the buyer as contesting against the evidence.
 
+### Who answers for a default
+
+The panel returns a finding and the items behind it. Whether that finding can name anyone is decided in code, by one rule seen from both sides: **a party is named liable only on something its opponent could not mint.**
+
+| Panel says | Stands when | Otherwise |
+|---|---|---|
+| `SELLER_RECOURSE` | a named item was NOT written by the buyer: the seller's own record, the seller's filing, or the provider's | `UNRESOLVED` |
+| `BUYER_DEFAULT` | the buyer's wallet countersigned the debt on-chain, or a named item was NOT written by the seller | `UNRESOLVED` |
+| `UNRESOLVED` | always | - |
+
+A buyer who says "I paid the seller directly" and files the only proof of it has corroborated nothing. Neither has a seller pointing at its own paperwork against a buyer who never countersigned. Both what the panel said and what the contract recorded are stored, so a reader can see the floor at work.
+
 ## Lifecycle
 
 ```text
@@ -133,9 +153,9 @@ The model recommends nothing in basis points and does not even name the decision
 | | |
 |---|---|
 | Network | GenLayer StudioNet (chain `61999`) |
-| Address | `0x117b03D79063F4aE882bA16B17398f4Dd49814e1` |
-| Deploy tx | `0x662a870268c57322a447bededcdcdf9b8893f58d9245f8d6bae74c4eae258b77` |
-| Version | `0.2.0` (read live from `get_config`) |
+| Address | `0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8` |
+| Deploy tx | `0x1dc4d48bc0e67299db676bf612a416b3b517a54a757e85c9da770e8e890af741` |
+| Version | `0.3.0` (read live from `get_config`) |
 | Source | `contracts/factora.py` |
 | Runner | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` (pinned) |
 | Owner / admin key | **none** - `__init__` sets four counters and nothing else |
@@ -159,7 +179,11 @@ The model recommends nothing in basis points and does not even name the decision
 | `challenge_lapse` | anyone | - | after 1h unresolved: restores the snapshot, frees the bond |
 | `fund` | any non-party | exact advance | derived from state, never caller-chosen |
 | `claim_advance` | seller | - | pull-payment sugar over `claim` |
-| `repay` | buyer wallet | exact amount owed | into custody |
+| `repay` | buyer wallet | exact amount owed | into custody; answers a default and clears any finding against either party |
+| `file_default_evidence` | seller, buyer or provider, each for itself | - | on a defaulted invoice; twice per side; drops a ruling still in its window |
+| `request_default_ruling` | seller, buyer or provider | - | one ruling per state of the record; arms the challenge window |
+| `finalize_default_ruling` | anyone | - | after the window; only here does a finding reach a wallet |
+| `pay_recourse` | seller | exact advance plus fee | only on a finalized ruling against the seller; credits the provider; closes the instrument |
 | `prepare_settlement` | anyone | - | computes, conserves and freezes the split |
 | `execute_settlement` | anyone | - | pays the prepared record, once |
 | `claim` | anyone owed | - | the only external value path; ledger zeroes before transfer |
@@ -167,7 +191,7 @@ The model recommends nothing in basis points and does not even name the decision
 
 ### Read methods
 
-`get_invoice`, `get_invoices` (paged), `get_invoices_for`, `get_evidence` (any version), `get_assessment` (any version), `get_claimable`, `get_stats`, `get_config` (every enforced bound).
+`get_invoice`, `get_invoices` (paged), `get_invoices_for`, `get_evidence` (any version), `get_assessment` (any version), `get_claimable`, `get_default_filing`, `get_default_ruling`, `get_liabilities`, `get_stats`, `get_config` (every enforced bound).
 
 ### Consensus guarantees
 
@@ -182,9 +206,25 @@ The model recommends nothing in basis points and does not even name the decision
 
 ## Verified end-to-end
 
+### v0.3.0: default adjudication, in two sittings
+
+A default cannot be hurried: the contract marks one only a full day after the
+due date. So the live proof has two sittings and this section says which one
+has happened. **Sitting one is done**: on the live v0.3.0 deployment two
+receivables were registered, judged, promoted and funded with real GEN, their
+due date under ninety minutes away, and the contract refused both an early
+default and an early filing on-chain (`web/live-v030.sitting1.stdout`).
+**Sitting two has not happened yet.** It marks both defaulted and runs each
+finding where it must fire and where it must not: a countersigned buyer found
+in default, who then repays and clears the finding; and a buyer whose own
+remittance advice is the only thing behind its story, on which the contract
+names nobody until the provider files what the buyer could not mint. Until it
+runs, the ruling path is proven by the direct suite and the sweep, not live,
+and this paragraph will say so. Reproduce with `node web/scripts/live-v030.mjs`.
+
 ### v0.2.0: each new finding, where it must fire and where it must not
 
-Run against the live v0.2.0 deployment with real GEN. Four receivables, two
+Run against the v0.2.0 deployment `0x117b03D79063F4aE882bA16B17398f4Dd49814e1` with real GEN (v0.3.0 added default adjudication and changed none of this). Four receivables, two
 per feature, each pair differing in one fact: the register confirms both
 parties where the documents name them and CONTRADICTS the buyer where they
 name someone else; a contested part is found SUPPORTED where the delivery
@@ -338,10 +378,13 @@ without touching funded terms, settlement to custody zero) remains recorded
 on v0.1.1 at `0xE2B4A382b040619779286fa808138A423B10C88a` — instruments do
 not migrate, and its transcript lives in that deployment's git history.
 
-Test gates behind both transcripts: 176 direct tests (nine of them the
+Test gates behind the transcripts: 209 direct tests (nine of them the
 dispute-invalidation regressions, fifty-seven the v0.2.0 identity and credit
-rules), a 111/111 mutation sweep with 10 declared-depth guards and a green
-accept-control, 45 frontend tests, genvm-lint clean.
+rules, thirty-three the v0.3.0 default rules), a 146-guard mutation sweep with
+11 declared-depth guards and a green accept-control, 48 frontend tests,
+genvm-lint clean. The sweep runs in CI on every push; its first full run on
+v0.3.0 found three guards no test failed for, and each now has the test that
+kills it or a stated reason it sits behind another.
 
 ## Tech stack
 
@@ -359,9 +402,9 @@ accept-control, 45 frontend tests, genvm-lint clean.
 ```text
 factora/
 ├── contracts/factora.py          the intelligent contract (the only authority)
-├── tests/direct/                 176 direct tests + strict genlayer stub
+├── tests/direct/                 209 direct tests + strict genlayer stub
 ├── scripts/
-│   ├── mutate.py                 111-guard mutation sweep + accept-control
+│   ├── mutate.py                 146-guard mutation sweep + accept-control
 │   └── verify_deployment.py      byte-compares live code against this source
 ├── web/
 │   ├── app/                      the prospectus (pages + components)
@@ -386,7 +429,7 @@ cd web && npm install && npm test && npm run build
 ```
 
 ```bash
-python scripts/verify_deployment.py 0x117b03D79063F4aE882bA16B17398f4Dd49814e1
+python scripts/verify_deployment.py 0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8
 ```
 
 Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`, then `npm run dev`.

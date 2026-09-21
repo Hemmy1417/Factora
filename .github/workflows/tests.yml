@@ -46,4 +46,4 @@ jobs:
       - name: build
         run: npm run build
         env:
-          NEXT_PUBLIC_CONTRACT_ADDRESS: "0x117b03D79063F4aE882bA16B17398f4Dd49814e1"
+          NEXT_PUBLIC_CONTRACT_ADDRESS: "0xC0398ad8EfAa523e73B7E12085117eEc4d65F4F8"

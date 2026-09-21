@@ -388,7 +388,7 @@ MUTATIONS = [
      ""),
     ("credit: a claim is filed against a paid invoice",
      """        if inv.status in ("REPAID", "SETTLEMENT_READY", "SETTLED",
-                          "CANCELLED", "EXPIRED"):
+                          "CANCELLED", "EXPIRED", "RECOURSE_SETTLED"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to contest in {inv.status}")""",
      ""),
     ("credit: a second claim piles onto an open one",
@@ -501,13 +501,172 @@ MUTATIONS = [
 """,
      ""),
 
+    # ── v0.3.0: default adjudication ──
+    ("default: a stranger files on somebody else's default",
+     """        if not side:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the seller, the buyer or the provider files on a default")""",
+     """        if not side:
+            side = "PROVIDER\""""),
+    ("default: evidence is filed on an invoice that has not defaulted",
+     """        if inv.status != "DEFAULTED":
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} default evidence is filed on a defaulted invoice, not in {inv.status}")""",
+     ""),
+    ("default: a side files without limit",
+     "        if mine >= MAX_DEFAULT_FILINGS_PER_SIDE:",
+     "        if False:"),
+    ("default: a filing carries any number of items",
+     "        if not isinstance(items, list) or not (1 <= len(items) <= MAX_DEFAULT_ITEMS):",
+     "        if not isinstance(items, list):"),
+    ("default: item content is unbounded",
+     "            if not (20 <= len(content) <= MAX_DEFAULT_ITEM_CHARS):",
+     "            if False:"),
+    ("default: an answer in the window leaves the ruling standing",
+     """        inv.default_filings_count = u256(n)
+        inv.default_pending = \"\"
+        inv.default_pending_until = u256(0)""",
+     "        inv.default_filings_count = u256(n)"),
+    ("default: a stranger asks for a ruling",
+     """        if not self._side_of(inv, self._sender()):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the seller, the buyer or the provider asks for a ruling")""",
+     ""),
+    ("default: a ruling is asked on an invoice that has not defaulted",
+     """        if inv.status != "DEFAULTED":
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} a default ruling is for a defaulted invoice, not {inv.status}")""",
+     ""),
+    ("default: a second ruling stacks on one still in its window",
+     """        if inv.default_pending:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} a ruling is already waiting out its window")""",
+     ""),
+    ("default: the same record is re-rolled for a kinder panel",
+     "        if filings <= int(inv.default_ruled_filings):",
+     "        if False:"),
+    ("default: a ruling is asked with nothing filed",
+     """        if filings == 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} file evidence on the default first")""",
+     ""),
+    ("default: a ruling names somebody before its window closes",
+     """        if now <= int(inv.default_pending_until):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} the ruling's window is still open")""",
+     ""),
+    ("default: the buyer's own proof names the seller (the floor)",
+     """        return finding if any(a != "BUYER" for a in named) else "UNRESOLVED\"""",
+     "        return finding"),
+    ("default: the seller's own documents name the buyer (the mirror)",
+     """        if buyer_acked or any(a != "SELLER" for a in named):
+            return finding
+        return "UNRESOLVED\"""",
+     "        return finding"),
+    ("default: the countersignature no longer carries a default",
+     """        if buyer_acked or any(a != "SELLER" for a in named):""",
+     """        if any(a != "SELLER" for a in named):"""),
+    # Behind the floor itself, which looks each named item up by author and
+    # so ignores any id that is not on the record. Filtering first keeps the
+    # stored ruling honest about what stood behind it.
+    ("DEPTH default: invented items, behind the floor's own author lookup",
+     "            named = sorted(set(i for i in (str(x).strip() for x in named) if i in authors))",
+     "            named = sorted(set(str(x).strip() for x in named))"),
+    ("default: a finding outside the enum is waved through",
+     """            if said not in DEFAULT_FINDINGS:
+                raise gl.vm.UserError(f"{ERROR_LLM} default_finding outside the enum: {said}")""",
+     ""),
+    ("equivalence: the default finding is not compared",
+     """            if mine["finding"] != theirs.get("finding"):
+                print(f"[DISAGREE] default finding""",
+     """            if False:
+                print(f"[DISAGREE] default finding"""),
+    ("equivalence: the default record is not compared",
+     """            if mine["rows"] != theirs.get("rows"):
+                return False""",
+     ""),
+    ("recourse: anyone pays it, or the seller pays it unruled",
+     """        if inv.status != "DEFAULTED" or inv.default_liable != "SELLER":""",
+     "        if False:"),
+    ("recourse: only the status is checked, not the ruling",
+     """        if inv.status != "DEFAULTED" or inv.default_liable != "SELLER":""",
+     """        if inv.status != "DEFAULTED":"""),
+    ("recourse: a stranger pays it",
+     """        if self._sender() != inv.seller:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} only the seller pays recourse")""",
+     ""),
+    ("recourse: any amount is accepted",
+     """        if self._value() != owed:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} recourse is exactly {owed} atto")""",
+     ""),
+    ("recourse: the fee the provider was owed is left out",
+     "        owed = int(inv.advance_atto) + self._base(inv) * int(inv.fee_bps) // 10_000\n        if self._value() != owed:",
+     "        owed = int(inv.advance_atto)\n        if self._value() != owed:"),
+    ("recourse: the deposit is credited but not held",
+     """        self.escrow_atto = u256(int(self.escrow_atto) + owed)
+        self._credit(inv.provider, owed)""",
+     "        self._credit(inv.provider, owed)"),
+    ("recourse: the instrument stays open after the provider is whole",
+     """        inv.status = "RECOURSE_SETTLED\"""",
+     "        pass"),
+    ("recourse: a pending ruling outlives the payment",
+     """        self._set_liable(inv, "")
+        inv.default_pending = \"\"
+        inv.default_pending_until = u256(0)
+        inv.status = "RECOURSE_SETTLED\"""",
+     """        self._set_liable(inv, "")
+        inv.status = "RECOURSE_SETTLED\""""),
+    ("ledger: repayment leaves the liability on the wallet",
+     """        self._set_liable(inv, "")
+        inv.default_pending = \"\"
+        inv.default_pending_until = u256(0)
+        return "repaid\"""",
+     """        inv.default_pending = \"\"
+        inv.default_pending_until = u256(0)
+        return "repaid\""""),
+    ("ledger: repayment leaves a ruling to finalize afterwards",
+     """        self._set_liable(inv, "")
+        inv.default_pending = \"\"
+        inv.default_pending_until = u256(0)
+        return "repaid\"""",
+     """        self._set_liable(inv, "")
+        return "repaid\""""),
+    ("ledger: a moved liability is counted twice",
+     "        for which, delta in ((old, -1), (side, 1)):",
+     "        for which, delta in ((side, 1),):"),
+    ("ledger: an adjudicated default does not follow the buyer",
+     """            if buyer_liabilities:
+                conflicts = sorted(set(conflicts + ["BUYER_IN_DEFAULT"]))""",
+     ""),
+    ("ledger: an adjudicated recourse does not follow the seller",
+     """            if seller_liabilities:
+                conflicts = sorted(set(conflicts + ["SELLER_IN_RECOURSE"]))""",
+     ""),
+    ("terminal: a settled recourse still takes a dispute",
+     """        if inv.status in ("SETTLED", "CANCELLED", "EXPIRED", "RECOURSE_SETTLED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to dispute in {inv.status}")""",
+     """        if inv.status in ("SETTLED", "CANCELLED", "EXPIRED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to dispute in {inv.status}")"""),
+    ("terminal: a settled recourse still takes a credit claim",
+     """                          "CANCELLED", "EXPIRED", "RECOURSE_SETTLED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to contest in {inv.status}")""",
+     """                          "CANCELLED", "EXPIRED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to contest in {inv.status}")"""),
+    ("terminal: a settled recourse still takes an acknowledgement",
+     """        if inv.status in ("SETTLED", "CANCELLED", "EXPIRED", "RECOURSE_SETTLED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to acknowledge in {inv.status}")""",
+     """        if inv.status in ("SETTLED", "CANCELLED", "EXPIRED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to acknowledge in {inv.status}")"""),
+    ("defang: a default filing reaches the panel with its fences live",
+     """                text = _defang(it["content"])
+                rows.append({"id": it["id"], "side": f["side"], "kind": "DEFAULT FILING",""",
+     """                text = it["content"]
+                rows.append({"id": it["id"], "side": f["side"], "kind": "DEFAULT FILING","""),
+
     # ── the accept-control: must stay GREEN ──
     ("CONTROL (must survive)",
-     '"version": "0.2.0",',
+     '"version": "0.3.0",',
      '"version": "0.0.9",  # control'),
 ]
 
-EXPECTED_MIN_GUARDS = 111
+EXPECTED_MIN_GUARDS = 146
 
 
 def run_suite(cwd: pathlib.Path) -> bool:

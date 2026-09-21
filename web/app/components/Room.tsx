@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CREDIT_FINDING_LABEL, IDENTITY_TIER_LABEL, creditClaimProblem, parseGenAmount, validLei,
+  CREDIT_FINDING_LABEL, DEFAULT_FINDING_LABEL, IDENTITY_TIER_LABEL, creditClaimProblem,
+  parseGenAmount, validLei,
 } from "../../lib/entity";
 import {
   getAssessment, getConfig, getEvidence, getInvoice, getClaimable, invalidateReads,
@@ -178,6 +179,15 @@ export function Room({ id }: { id: string }) {
           {inv.credit_claim_epoch && !inv.credit_claim_withdrawn_epoch ? (
             <span className="stamp tone-hold">part contested by the buyer</span>
           ) : null}
+          {inv.default_liable === "BUYER" ? (
+            <span className="stamp tone-bad">buyer found in default</span>
+          ) : null}
+          {inv.default_liable === "SELLER" ? (
+            <span className="stamp tone-bad">seller owes recourse</span>
+          ) : null}
+          {inv.default_pending ? (
+            <span className="stamp tone-hold">default ruling in its window</span>
+          ) : null}
           {inv.identity_tier ? (
             <span className={`stamp ${inv.identity_tier === "REGISTERED" ? "tone-good" : "tone-neutral"}`}>
               {IDENTITY_TIER_LABEL[inv.identity_tier] ?? inv.identity_tier}
@@ -198,6 +208,13 @@ export function Room({ id }: { id: string }) {
           <p className="v-body" style={{ margin: 0, fontSize: 13 }}>
             A dispute was filed and withdrawn by the buyer&apos;s wallet; the
             next judgment reads that history.
+          </p>
+        ) : null}
+        {inv.default_pending && DEFAULT_FINDING_LABEL[inv.default_pending.finding] ? (
+          <p className="note" style={{ margin: 0 }}>
+            A panel has ruled on this default: {DEFAULT_FINDING_LABEL[inv.default_pending.finding]}.
+            Nothing takes effect until the window closes, and any party may
+            answer with a filing before then.
           </p>
         ) : null}
         {inv.credit_claim_epoch && !inv.credit_claim_withdrawn_epoch ? (
@@ -370,6 +387,8 @@ function Actions({
   const [creditAmount, setCreditAmount] = useState("");
   const [creditText, setCreditText] = useState("");
   const [lei, setLei] = useState("");
+  const [defaultLabel, setDefaultLabel] = useState("");
+  const [defaultText, setDefaultText] = useState("");
   const [minInvoice, setMinInvoice] = useState(10n ** 16n);
   useEffect(() => {
     void getConfig().then((c) => setMinInvoice(BigInt(c.min_invoice_atto))).catch(() => undefined);
@@ -714,6 +733,72 @@ function Actions({
           onClick={() => void write("mark_expired", [id], 0n,
             P.statusIs(id, ["EXPIRED"]), "Expired.")}>
           Mark expired
+        </button>
+      </ActionCard>,
+    );
+  }
+  // the default, and who answers for it ─────────────────────────────────
+  const isProvider = !!inv.provider && sameAddress(me, inv.provider);
+  const isParty = isSeller || isBuyer || isProvider;
+  if (inv.status === "DEFAULTED" && isParty) {
+    cards.push(
+      <ActionCard key="default-file" title="Put your account on the record"
+        body="Each side may file twice. Every item reaches the panel labelled with the side that
+          wrote it, and nobody is found liable on their opponent's paper alone. Filing drops a
+          ruling that has not taken effect, so the next one reads everything.">
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={defaultLabel} maxLength={80} placeholder="What this document is"
+            onChange={(e) => setDefaultLabel(e.target.value)} />
+          <textarea rows={4} value={defaultText}
+            placeholder="The document itself, as text"
+            onChange={(e) => setDefaultText(e.target.value)} />
+          <button className="btn"
+            disabled={busy || !defaultLabel.trim() || defaultText.trim().length < 20}
+            onClick={() => void write("file_default_evidence",
+              [id, JSON.stringify([{ label: defaultLabel.trim(), content: defaultText.trim() }])], 0n,
+              P.defaultFilingsAbove(id, inv.default_filings_count), "Your account is on the record.")}>
+            File it
+          </button>
+        </div>
+      </ActionCard>,
+    );
+    if (!inv.default_pending && inv.default_filings_count > inv.default_ruled_filings) {
+      cards.push(
+        <ActionCard key="default-rule" title="Ask the panel who answers for this"
+          body="The panel reads the original record and everything filed since. One ruling per
+            state of the record: it can be asked again only after a new filing.">
+          <button className="btn" disabled={busy}
+            onClick={() => void write("request_default_ruling", [id], 0n,
+              P.defaultRulingsAbove(id, inv.default_ruling_count), "The panel has ruled.")}>
+            Request a ruling
+          </button>
+        </ActionCard>,
+      );
+    }
+  }
+  if (inv.status === "DEFAULTED" && inv.default_pending && now > inv.default_pending_until) {
+    cards.push(
+      <ActionCard key="default-final" title="Let the ruling take effect"
+        body="Its window closed with no answer filed. Anyone may make it effective.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("finalize_default_ruling", [id], 0n,
+            P.defaultRulingSettled(id), "The ruling is now in effect.")}>
+          Finalize the ruling
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isSeller && inv.status === "DEFAULTED" && inv.default_liable === "SELLER") {
+    const owed = BigInt(inv.recourse_atto);
+    cards.push(
+      <ActionCard key="recourse" title="Pay recourse"
+        body={`A panel found this invoice was not what was declared. Returning the advance plus
+          the provider's fee, ${formatGen(owed)} GEN in one payment, makes the provider whole
+          and clears the finding from your wallet.`}>
+        <button className="btn" disabled={busy}
+          onClick={() => void write("pay_recourse", [id], owed,
+            P.statusIs(id, ["RECOURSE_SETTLED"]), "Recourse paid. The provider is whole.")}>
+          Pay {formatGen(owed)} GEN
         </button>
       </ActionCard>,
     );

@@ -34,6 +34,7 @@ export const STATUS_LABEL: Record<string, string> = {
   SETTLEMENT_READY: "Settlement ready",
   SETTLED: "Settled",
   DEFAULTED: "Defaulted",
+  RECOURSE_SETTLED: "Recourse paid",
   CANCELLED: "Cancelled",
   EXPIRED: "Expired",
 };
@@ -51,6 +52,7 @@ export const STATUS_TONE: Record<string, string> = {
   SETTLEMENT_READY: "tone-hold",
   SETTLED: "tone-good",
   DEFAULTED: "tone-bad",
+  RECOURSE_SETTLED: "tone-neutral",
   CANCELLED: "tone-neutral",
   EXPIRED: "tone-neutral",
 };
@@ -84,6 +86,8 @@ export const CONFLICT_LABEL: Record<string, string> = {
   EXTERNAL_CONTRADICTION: "An external source contradicts the record",
   ENTITY_CONTRADICTED: "The public register contradicts a named party",
   CREDIT_CLAIM_CONTRADICTED: "The record contradicts the part the buyer contests",
+  BUYER_IN_DEFAULT: "This buyer has an unpaid default a panel ruled on",
+  SELLER_IN_RECOURSE: "This seller owes recourse a panel ruled on",
   OTHER_CONFLICT: "Other material conflict",
 };
 

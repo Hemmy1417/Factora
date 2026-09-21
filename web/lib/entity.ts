@@ -39,6 +39,12 @@ export function creditClaimProblem(
   return "";
 }
 
+export const DEFAULT_FINDING_LABEL: Record<string, string> = {
+  BUYER_DEFAULT: "the buyer did not pay a valid debt",
+  SELLER_RECOURSE: "the invoice was not what the seller declared, so the seller owes the provider",
+  UNRESOLVED: "the record does not settle who answers for it",
+};
+
 export const IDENTITY_TIER_LABEL: Record<string, string> = {
   REGISTERED: "both parties on the public register",
   KEYS_ONLY: "identity rests on wallet keys",

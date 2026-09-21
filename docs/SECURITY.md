@@ -60,6 +60,25 @@
   | the buyer's statement alone | cut the debt (`SUPPORTED`) | the finding needs an examined item named behind it, or it falls to INSUFFICIENT |
   | the absence of a rebuttal alone | mark the buyer as contesting against the evidence (`NOT_SUPPORTED`) | the same rule, from the other side |
 
+- A default is adjudicated, and nobody is found liable on their opponent's
+  paper (v0.3.0). The panel returns a finding and the items behind it;
+  `_default_finding` decides in code whether it can stand. `SELLER_RECOURSE`
+  needs a named item the buyer did not write. `BUYER_DEFAULT` needs the
+  buyer's on-chain countersignature or a named item the seller did not
+  write. Anything less is `UNRESOLVED` and names nobody. Both the panel's
+  word and the recorded finding are stored. Validators compare the recorded
+  finding, so two panels that disagree in words but land together after the
+  floor agree; and a validator re-applies the floor to the leader's own
+  stated word and items, so a leader cannot record more than it floored.
+- A ruling assigns nothing when it lands. It waits out the invoice's
+  challenge window, a filing in that window drops it, the same state of the
+  record cannot be ruled on twice, and every hold has an exit: the buyer can
+  always repay, which clears a finding against either party, and a seller
+  found liable can always pay recourse.
+- A finding reaches a wallet in exactly one place (`_set_liable`), so the
+  count per wallet cannot drift from the invoices that justify it, and it
+  leaves the same way. While it stands, it follows the wallet into every
+  other assessment as a contract-owned conflict code.
 - A buyer's objection is read exactly as it stands. A credit claim filed
   after a judgment strikes that judgment's effect, as a dispute does. So
   does a claim the panel read that has since been replaced by a larger one,
@@ -81,6 +100,17 @@ witness, no clock: every timed method fails closed.
 
 - No seller collateral in the MVP: a default records the provider's loss;
   it cannot manufacture a recovery.
+- The provider's evidence counts as independent in a default, in both
+  directions. A provider is the party out of pocket and gains from SOME
+  finding, not from a particular one, but a provider colluding with one side
+  could file for it. The floor stops a party being named on its opponent's
+  paper; it does not stop two parties agreeing on a story.
+- The floor checks who WROTE a named item, not whether the item is relevant.
+  Relevance is the panel's judgment, and validators must land on the same
+  recorded finding for it to stand.
+- A finding that follows a wallet is an on-chain fact about that wallet on
+  this contract only. A party can act through a fresh wallet; what it cannot
+  do is carry the old wallet's countersigned history with it.
 - The register confirms a company, not a key. `REGISTERED` means the entity
   exists, is active, and is the party the committed documents name. It does
   not mean the wallet belongs to that entity: a seller who controls a second

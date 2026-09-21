@@ -115,8 +115,21 @@ HIGH risk         not financeable: coerced to review in the judged block`}
           <div className="def-row">
             <dt>Default</dt>
             <dd style={{ textAlign: "right", maxWidth: 380 }}>
-              due date + 1 day grace; recorded honestly — the MVP holds no
-              seller collateral and does not pretend to
+              one day after the due date anyone may record it. The buyer can
+              still repay at any time, which ends the matter. No seller
+              collateral is held, and the protocol does not pretend otherwise
+            </dd>
+          </div>
+          <div className="def-row">
+            <dt>Who answers for a default</dt>
+            <dd style={{ textAlign: "right", maxWidth: 380 }}>
+              the seller, the buyer and the provider may each file their
+              account, and a panel rules: the buyer did not pay a valid debt,
+              or the invoice was not what the seller declared, or the record
+              does not settle it. Nobody is found liable on their
+              opponent&apos;s paper alone. A ruling waits out the challenge
+              window, and a finding stays on the wallet, raising the risk on
+              its other invoices, until it is paid
             </dd>
           </div>
         </dl>
