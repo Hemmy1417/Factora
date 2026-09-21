@@ -109,3 +109,24 @@ export const disputeWithdrawn =
     const v = await inv(r, id);
     return !!v && v.buyer_dispute_withdrawn_epoch > 0;
   };
+
+export const creditClaimFiled =
+  (id: string, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.credit_claim_epoch > 0 && v.credit_claim_withdrawn_epoch === 0;
+  };
+
+export const creditClaimWithdrawn =
+  (id: string, r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && v.credit_claim_withdrawn_epoch > 0;
+  };
+
+export const entityAttested =
+  (id: string, side: "seller" | "buyer", r: Readers = real) =>
+  async (): Promise<boolean> => {
+    const v = await inv(r, id);
+    return !!v && (side === "seller" ? v.seller_entity : v.buyer_entity) !== null;
+  };

@@ -19,15 +19,17 @@ export default function DocsPage() {
           <div className="def-row">
             <dt>The seller</dt>
             <dd style={{ textAlign: "right", maxWidth: 380 }}>
-              registers the receivable, commits evidence versions, requests
-              assessment, claims the advance and the reserve
+              registers the receivable, commits evidence versions, names its
+              legal entity in the public register, requests assessment, claims
+              the advance and the reserve
             </dd>
           </div>
           <div className="def-row">
             <dt>The buyer&apos;s wallet</dt>
             <dd style={{ textAlign: "right", maxWidth: 380 }}>
-              may countersign the obligation, may dispute it on-chain, and is
-              the only wallet the contract accepts repayment from
+              may countersign the obligation, name its own legal entity,
+              dispute the invoice or contest part of it on-chain, and is the
+              only wallet the contract accepts repayment from
             </dd>
           </div>
           <div className="def-row">
@@ -58,11 +60,27 @@ export default function DocsPage() {
           table. There is no basis point anywhere a model can choose.
         </p>
         <div className="sheet-recessed v-mono" style={{ whiteSpace: "pre", overflowX: "auto", marginTop: 10 }}>
-{`                        advance     advance (no buyer ack)   fee
-LOW risk                85%         60%                      3%
-MEDIUM risk             70%         50%                      5%
-HIGH risk               not financeable — coerced to review in the judged block`}
+{`                  both on the register    wallet keys only    not countersigned    fee
+LOW risk          85%                     75%                 60%                  3%
+MEDIUM risk       70%                     60%                 50%                  5%
+HIGH risk         not financeable: coerced to review in the judged block`}
         </div>
+        <p className="v-body" style={{ fontSize: 13.5, marginTop: 12 }}>
+          The first column needs the buyer&apos;s countersignature and both
+          parties confirmed by the public register of legal entities. A party
+          names only its identifier. The contract decides where to look it up,
+          every validator reads the record itself, and the panel checks that it
+          names the same party the documents do. This shows the company exists
+          and is the one on the invoice. It does not show that the wallet
+          belongs to that company, and the table does not pretend it does.
+        </p>
+        <p className="v-body" style={{ fontSize: 13.5, marginTop: 8 }}>
+          If the buyer contests part of an invoice, that part is never
+          financed, and both the advance and the fee are worked out on the
+          rest. The buyer owes the reduced amount only when the panel finds the
+          claim supported by an item in the record. The buyer&apos;s word alone
+          does not reduce the debt.
+        </p>
       </div>
 
       <div className="section-head">

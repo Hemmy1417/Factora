@@ -21,6 +21,10 @@ const base = (over: Partial<Invoice> = {}): Invoice => ({
   challenge_reason: "", challenge_new_version: 0, challenged_version: 0,
   challenge_filed_epoch: 0, settlement: null, settled_epoch: 0,
   defaulted_epoch: 0, cancelled_epoch: 0, expired_epoch: 0,
+  base_atto: "100000000000000000", due_atto: "100000000000000000",
+  identity_tier: "", seller_entity: null, buyer_entity: null,
+  credit_claim_atto: "0", credit_claim_text: "", credit_claim_epoch: 0,
+  credit_claim_withdrawn_epoch: 0,
   ...over,
 });
 
@@ -78,5 +82,29 @@ describe("dispute predicates track open versus withdrawn", () => {
     expect(await P.disputeFiled("fac-000001", withdrawn)()).toBe(false);
     expect(await P.disputeWithdrawn("fac-000001", withdrawn)()).toBe(true);
     expect(await P.disputeWithdrawn("fac-000001", open)()).toBe(false);
+  });
+});
+
+describe("v0.2.0 predicates", () => {
+  const claim = { registry: "GLEIF", entity_id: "5493001KJTIIGC8Y1R12", epoch: 1 };
+
+  it("creditClaimFiled is true only while the claim stands", async () => {
+    expect(await P.creditClaimFiled("fac-000001", readers(base({ credit_claim_epoch: 5 })))()).toBe(true);
+    expect(await P.creditClaimFiled("fac-000001", readers(base()))()).toBe(false);
+    expect(await P.creditClaimFiled("fac-000001",
+      readers(base({ credit_claim_epoch: 5, credit_claim_withdrawn_epoch: 9 })))()).toBe(false);
+  });
+
+  it("creditClaimWithdrawn waits for the withdrawal itself", async () => {
+    expect(await P.creditClaimWithdrawn("fac-000001", readers(base({ credit_claim_epoch: 5 })))()).toBe(false);
+    expect(await P.creditClaimWithdrawn("fac-000001",
+      readers(base({ credit_claim_epoch: 5, credit_claim_withdrawn_epoch: 9 })))()).toBe(true);
+  });
+
+  it("entityAttested is anchored to the caller's own side", async () => {
+    const onlySeller = readers(base({ seller_entity: claim }));
+    expect(await P.entityAttested("fac-000001", "seller", onlySeller)()).toBe(true);
+    expect(await P.entityAttested("fac-000001", "buyer", onlySeller)()).toBe(false);
+    expect(await P.entityAttested("fac-000001", "buyer", readers(null))()).toBe(false);
   });
 });

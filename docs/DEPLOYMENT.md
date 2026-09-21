@@ -51,9 +51,9 @@ The deploying account pays the fee and gains nothing else.
 | | |
 |---|---|
 | Network | GenLayer StudioNet (`61999`) |
-| Address | `0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5` |
-| Deploy tx | `0xedb264ec144e5aaefbc033439fa2e1bb39b4085adfa87391839d92cb46b97bfe` |
-| Version | `0.1.2` (read live from `get_config`) |
+| Address | `0x117b03D79063F4aE882bA16B17398f4Dd49814e1` |
+| Deploy tx | `0x662a870268c57322a447bededcdcdf9b8893f58d9245f8d6bae74c4eae258b77` |
+| Version | `0.2.0` (read live from `get_config`) |
 
 ### Superseded deployments
 
@@ -62,6 +62,8 @@ anywhere will outlive the moment.
 
 | Address | Why it was replaced |
 |---|---|
+| `0x7b1BC610ef36f77CDa07e18bf534980D592aE16A` | The first v0.2.0 deployment (deploy tx `0xea362e98bb1426591962d7932e0b0339debd3485221841109172f77ed426b96d`), replaced within the hour by what its own live control found. Shown a buyer's credit claim and NO dispute, the panel named the `BUYER_DISPUTE_OPEN` conflict anyway; with a contradicted claim that made two hard conflicts and held a partial objection at review, which is the one thing a partial objection exists not to do. The code is a chain fact, so the contract now owns it: it is no longer offered to the model, is stripped if named, and is added only when a dispute is open. The four receivables judged there remain readable. |
+| `0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5` | v0.1.2, the deployment a reviewer confirmed the buyer-dispute protection on (deploy tx `0xedb264ec144e5aaefbc033439fa2e1bb39b4085adfa87391839d92cb46b97bfe`). Superseded by v0.2.0, which adds registrar-attested identity, the buyer's partial objection, and the rule that every stored byte of a fetched page is text the validator fetched itself. Its record, the dispute regression arc included, remains readable there. |
 | `0x91A4dDa98B0fb5612700E41e1260Be6D851944c5` | v0.1.0. Its first live panel round returned UNDETERMINED: the model was asked for the decision and the risk class directly and validators were required to word-match them, which five independent models will not reliably do. v0.1.1 shrinks the model's surface to the three evidence pillars and derives both money fields in code — see docs/ADJUDICATION.md. |
 | `0x92Bd3E1C5c78712B661c3D700cFcc5a70e075b81` | v0.1.1 built from a working copy whose line endings had drifted to CRLF, so a fresh clone (git checks out LF) could never byte-verify it. Redeployed from normalized LF bytes. The failure a byte-verifier exists to catch. |
 | `0x0c54C840c72024c4e98c63A21B6f38F08516B507` | v0.1.2 deployed from a working copy whose line endings had drifted to CRLF — the same failure the `0x92Bd…` row records, recurring because the byte-verifier's universal-newline reads normalized BOTH sides and masked it. The verifier now refuses a working copy containing a single CR, and `.gitattributes` pins the tree to LF. The stewards' regression arc ran and settled on this deployment (fac-000001, custody zero) before the defect was caught; its state remains readable there, and the current deployment is character-identical after normalization. |
@@ -70,7 +72,7 @@ anywhere will outlive the moment.
 ## 4. Verify the deployed bytes match this source
 
 ```bash
-python scripts/verify_deployment.py 0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5
+python scripts/verify_deployment.py 0x117b03D79063F4aE882bA16B17398f4Dd49814e1
 ```
 
 Reads the live code back, compares character for character, checks the

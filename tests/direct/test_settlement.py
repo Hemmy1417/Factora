@@ -26,7 +26,7 @@ def test_only_the_buyer_repays_and_exactly(module, c):
     with pytest.raises(err(module), match="only the named buyer"):
         c.repay(iid)
     as_(module, BUYER, amount - 1)
-    with pytest.raises(err(module), match="invoice amount exactly"):
+    with pytest.raises(err(module), match="amount owed exactly"):
         c.repay(iid)
     as_(module, BUYER, amount)
     assert c.repay(iid) == "repaid"

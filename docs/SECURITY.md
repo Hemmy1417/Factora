@@ -37,7 +37,35 @@
   code whatever the panel thought.
 - Evidence is committed bytes: canonical manifest, per-item sha256, root
   on-chain. A changed byte is a different version. Fetched pages arrive
-  under consensus with digests over the stored excerpt.
+  under consensus with digests over the stored excerpt, and since v0.2.0
+  every stored byte of a fetched page must be text the validator fetched
+  itself: the leader's excerpt is a prefix of, or equal to, the validator's
+  own. An honest page with a fabricated ending behind a correct digest is
+  refused. The cost is stated: a leader whose render ran longer is refused
+  too, and the round is run again.
+- The subject of the judgment does not choose the source that vouches for
+  its identity (v0.2.0). A party names an identifier; the register's address
+  comes from a fixed table in the contract; every validator fetches the
+  record itself; both nodes keep the same canonical subset of it, so the
+  stored bytes must be equal, not merely compatible; and the identity class
+  is derived in code. The signer is the party: nobody attests for anybody
+  else, an identifier is written once, its check digits are verified in
+  code, and one entity cannot sit on both sides of an invoice.
+- Every floor has its mirror, and both are tested.
+
+  | One side's self-serving input | cannot | because |
+  |---|---|---|
+  | a party's own documents, or a model volunteering MATCH | lift that party to REGISTERED | with no attestation the panel is never asked, and the class is NONE |
+  | a model naming `ENTITY_CONTRADICTED`, or answering MISMATCH for a side that attested nothing | sink the other party to CONTRADICTED | the code is contract-owned, stripped from the model's list, and derived only from a register record this node read |
+  | the buyer's statement alone | cut the debt (`SUPPORTED`) | the finding needs an examined item named behind it, or it falls to INSUFFICIENT |
+  | the absence of a rebuttal alone | mark the buyer as contesting against the evidence (`NOT_SUPPORTED`) | the same rule, from the other side |
+
+- A buyer's objection is read exactly as it stands. A credit claim filed
+  after a judgment strikes that judgment's effect, as a dispute does. So
+  does a claim the panel read that has since been replaced by a larger one,
+  and so does a claim the panel priced that has since been WITHDRAWN: terms
+  that finance and collect a reduced amount must not outlive the claim that
+  reduced it.
 - Prompt injection: both fence delimiters defused in every party string,
   URL charset closed against header forgery, provenance labels per fence,
   guardrails that name the mechanism honestly.
@@ -53,6 +81,18 @@ witness, no clock: every timed method fails closed.
 
 - No seller collateral in the MVP: a default records the provider's loss;
   it cannot manufacture a recovery.
+- The register confirms a company, not a key. `REGISTERED` means the entity
+  exists, is active, and is the party the committed documents name. It does
+  not mean the wallet belongs to that entity: a seller who controls a second
+  wallet can name a real company's identifier for it. The register holds no
+  field that binds an identifier to a wallet, so this is priced (a tier, not
+  a guarantee) and stated rather than closed.
+- One register. Entities without a Legal Entity Identifier cannot reach the
+  top table; they are priced on keys, exactly as before v0.2.0. The table of
+  registers is the extension point.
+- After funding, a credit claim flags the position for monitoring and
+  changes nothing else: the amount owed was fixed by the judgment in effect
+  when the money moved.
 - Document authenticity is bounded, not solved: a forged PDF pasted as
   text is still a seller declaration. The countersignature cap and the
   tribunal's provenance weighing price that honestly rather than

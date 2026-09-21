@@ -135,7 +135,12 @@ MUTATIONS = [
     ("equivalence: the score bucket tolerance is unbounded",
      "if abs(my_bucket - their_bucket) > 1:",
      "if False:"),
-    ("record: row reachability is not compared",
+    # v0.2.0 made this a second layer. A leader claiming a page this node
+    # could not read now also fails the fetched-bytes binding (nothing this
+    # node fetched can be a prefix of nothing), and a leader calling dark a
+    # page this node read fails the examined-set rule inside this node's own
+    # judgment. The comparison stays, declared as what it now is.
+    ("DEPTH record: row reachability, behind the fetched-bytes binding",
      'if bool(me["reachable"]) != bool(them.get("reachable")):',
      "if False:"),
     ("record: a digest no longer has to cover its own excerpt",
@@ -147,8 +152,8 @@ MUTATIONS = [
 
     # ── the terms table ──
     ("terms: the no-ack cap is gone",
-     "table = ADVANCE_BPS if acked else ADVANCE_BPS_NO_ACK\n            adv = table.get(risk)",
-     "table = ADVANCE_BPS\n            adv = table.get(risk)"),
+     "        return \"NO_ACK\", ADVANCE_BPS_NO_ACK",
+     "        return \"NO_ACK\", ADVANCE_BPS_KEYS_ONLY"),
 
     # ── money ──
     ("fund: any deposit value is accepted",
@@ -182,8 +187,8 @@ MUTATIONS = [
      'if inv.status != "SETTLEMENT_READY":',
      "if False:"),
     ("settle: the fee is ten times the agreed rate",
-     'fee = int(inv.amount_atto) * int(inv.fee_bps) // 10_000',
-     'fee = int(inv.amount_atto) * int(inv.fee_bps) // 1_000'),
+     'fee = self._base(inv) * int(inv.fee_bps) // 10_000',
+     'fee = self._base(inv) * int(inv.fee_bps) // 1_000'),
     ("claim: the ledger pays without zeroing",
      "self.claimable[sender] = u256(0)\n        self.escrow_atto",
      "self.escrow_atto"),
@@ -197,7 +202,7 @@ MUTATIONS = [
     # ── challenge mechanics ──
     ("challenge: the seller challenges their own record",
      "if sender == inv.seller:",
-     "if False:"),
+     "if False:", 1),
     ("challenge: a second challenge stacks on the first",
      'if inv.challenge_open == "yes":\n            raise gl.vm.UserError(f"{ERROR_EXPECTED} a challenge is already open")',
      'if False:\n            raise gl.vm.UserError(f"{ERROR_EXPECTED} a challenge is already open")'),
@@ -245,14 +250,14 @@ MUTATIONS = [
     # ── the dispute-invalidation rule (judge letter, v0.1.2) ──
     ("dispute: a post-judgment dispute leaves a pending verdict promotable",
      '''        if inv.status == "PENDING_FINALITY":
-            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))''',
+            if self._objection_unread(inv, int(inv.pending_version)):''',
      '''        if False:
-            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))'''),
+            if self._objection_unread(inv, int(inv.pending_version)):'''),
     ("dispute: effective terms survive the obligor's repudiation",
      '''        elif inv.status == "FINANCEABLE":
-            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))''',
+            if self._objection_unread(inv, int(inv.assessed_version)):''',
      '''        elif False:
-            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))'''),
+            if self._objection_unread(inv, int(inv.assessed_version)):'''),
     ("dispute: a lapsed challenge resurrects struck terms",
      '''        self._dispute_invalidates(inv)
         return "lapsed"''',
@@ -277,13 +282,228 @@ MUTATIONS = [
                 "verdict and funding — a reassessment must read it first")''',
      ""),
 
+    # ── v0.2.0: registrar-attested identity ──
+    ("attest: a stranger attests an entity for a party",
+     """        else:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only a party to the invoice attests its own entity")""",
+     """        else:
+            side = "buyer\""""),
+    ("attest: a mistyped identifier is accepted",
+     "        if not _valid_lei(entity_id):",
+     "        if False:"),
+    ("attest: the check digits are not checked",
+     "    return int(digits) % 97 == 1",
+     "    return True"),
+    ("attest: a party names its own register",
+     "        if registry not in REGISTRIES:",
+     "        if False:"),
+    ("attest: identities are shopped between judgments",
+     """        if mine:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} this party already attested its entity")""",
+     ""),
+    ("attest: one entity sits on both sides of an invoice",
+     """        if other and json.loads(other).get("entity_id") == entity_id:""",
+     "        if False:"),
+    ("attest: an entity is attested after money has moved",
+     """        if inv.status not in ("DRAFT", "COMMITTED", "PENDING_FINALITY",
+                              "FINANCEABLE", "NOT_FINANCEABLE", "REVIEW"):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} an entity is attested before funding, not in {inv.status}")""",
+     ""),
+    ("identity: keys alone earn the top table",
+     """    if entity.get("seller") == "REGISTERED" and entity.get("buyer") == "REGISTERED":""",
+     "    if True:"),
+    ("identity: one registered party counts as two",
+     """    if entity.get("seller") == "REGISTERED" and entity.get("buyer") == "REGISTERED":""",
+     """    if entity.get("seller") == "REGISTERED" or entity.get("buyer") == "REGISTERED":"""),
+    ("identity: registration stands in for the countersignature",
+     """    if not acked:
+        return "NO_ACK", ADVANCE_BPS_NO_ACK""",
+     ""),
+    ("identity: an unattested party is judged on the model's say-so",
+     """    if not claimed:
+        return "NONE\"""",
+     ""),
+    ("identity: an unreachable register still registers",
+     """    if not reachable:
+        return "DECLARED\"""",
+     ""),
+    ("identity: a dissolved entity is not a contradiction",
+     """    if not active:
+        return "CONTRADICTED\"""",
+     ""),
+    # Behind the question gate: the panel is only ASKED about a side whose
+    # registration is current, so an uncurrent one reaches the ladder with no
+    # match and lands on DECLARED either way. The rung stays for the day the
+    # gate is loosened.
+    ("DEPTH identity: a lapsed registration, behind the question gate",
+     """    if not current:
+        return "DECLARED\"""",
+     ""),
+    ("identity: a register naming another party does not hold the record",
+     "    elif (dispute_open or examined_count == 0 or entity_contradicted",
+     "    elif (dispute_open or examined_count == 0"),
+    ("identity: the contradiction never reaches the conflict set",
+     """            if entity_contradicted:
+                conflicts = sorted(set(conflicts + ["ENTITY_CONTRADICTED"]))""",
+     ""),
+    ("identity: a model raises a code the contract owns",
+     "                if c in CONFLICT_CODES and c not in CODE_OWNED_CONFLICTS))",
+     "                if c in CONFLICT_CODES))"),
+    ("identity: a record for another identifier is accepted",
+     """        if str(attrs.get("lei", "")).strip().upper() != lei:
+            return "", False, False""",
+     ""),
+    ("identity: the register's text reaches the prompt with its fences live",
+     "        text = _defang(_canonical(subset))[:MAX_REGISTRY_CHARS]",
+     "        text = _canonical(subset)[:MAX_REGISTRY_CHARS]"),
+    ("identity: an entity answer outside the enum is waved through",
+     """                    if match not in ENTITY_MATCHES:
+                        raise gl.vm.UserError(
+                            f"{ERROR_LLM} {side}_entity_match outside the enum: {match}")""",
+     ""),
+    ("equivalence: identity classes are not compared",
+     """            if mine["identity"] != theirs.get("identity"):""",
+     "            if False:"),
+    ("equivalence: a leader's register bytes are not bound to this node's",
+     """                if them.get("excerpt") != me["excerpt"]:
+                    return False
+            return True""",
+     "            return True"),
+    ("equivalence: a fetched page may carry a fabricated ending",
+     """                    if not excerpt or not me["excerpt"].startswith(excerpt):""",
+     """                    if not excerpt or not (me["excerpt"].startswith(excerpt)
+                                           or excerpt.startswith(me["excerpt"])):"""),
+    ("equivalence: a reachable page may be stored as nothing",
+     """                    if not excerpt or not me["excerpt"].startswith(excerpt):""",
+     """                    if not me["excerpt"].startswith(excerpt):"""),
+
+    # ── v0.2.0: the credit claim ──
+    ("credit: anyone files the buyer's claim",
+     """        if self._sender() != inv.buyer:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the named buyer wallet files a credit claim")""",
+     ""),
+    ("credit: a claim is filed against a paid invoice",
+     """        if inv.status in ("REPAID", "SETTLEMENT_READY", "SETTLED",
+                          "CANCELLED", "EXPIRED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to contest in {inv.status}")""",
+     ""),
+    ("credit: a second claim piles onto an open one",
+     """        if self._credit_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} a credit claim is already open")""",
+     ""),
+    ("credit: a zero or negative claim is accepted",
+     """        if claim <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} the contested amount must be positive")""",
+     ""),
+    ("credit: a claim may swallow the whole invoice",
+     "        if int(inv.amount_atto) - claim < MIN_INVOICE_ATTO:",
+     "        if False:"),
+    ("credit: claim text is unbounded",
+     "        if not (10 <= len(text) <= MAX_CREDIT_TEXT_CHARS):",
+     "        if False:"),
+    ("credit: filing does not strike a verdict that never read it",
+     """        inv.credit_claim_withdrawn_epoch = u256(0)
+        self._dispute_invalidates(inv)""",
+     "        inv.credit_claim_withdrawn_epoch = u256(0)"),
+    ("credit: a verdict that priced a withdrawn claim stays in effect",
+     """        elif d.get("credit_claim_open", False):
+            return True
+        return False""",
+     "        return False"),
+    ("credit: a withdrawal does not re-examine the verdict",
+     """        inv.credit_claim_withdrawn_epoch = u256(self._require_clock())
+        self._dispute_invalidates(inv)""",
+     "        inv.credit_claim_withdrawn_epoch = u256(self._require_clock())"),
+    ("credit: a funded invoice is flagged with no objection standing",
+     """        elif (inv.status in ("FUNDED", "REPAID")
+              and (self._dispute_open(inv) or self._credit_open(inv))):""",
+     """        elif inv.status in ("FUNDED", "REPAID"):"""),
+    ("credit: a larger claim passes as the one the panel read",
+     """            if str(d.get("credit_claim_atto", "")) != str(int(inv.credit_claim_atto)):
+                return True""",
+     ""),
+    ("credit: the same amount refiled later passes as the claim the panel read",
+     """            if _as_int(d.get("credit_claim_epoch"), 0) != int(inv.credit_claim_epoch):
+                return True""",
+     ""),
+    ("credit: finalize promotes over an unread claim",
+     """        if self._objection_unread(inv, version):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer contested part of this invoice \"""",
+     """        if False:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer contested part of this invoice \""""),
+    ("credit: funding proceeds over an unread claim",
+     """        if self._objection_unread(inv, int(inv.assessed_version)):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer's credit claim stands between \"""",
+     """        if False:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer's credit claim stands between \""""),
+    ("credit: anyone withdraws the buyer's claim",
+     """        if self._sender() != inv.buyer:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the named buyer wallet can withdraw")
+        if not self._credit_open(inv):""",
+     "        if not self._credit_open(inv):"),
+    ("credit: a withdrawal needs no open claim",
+     """        if not self._credit_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} no credit claim is open")""",
+     ""),
+    ("credit: the contested part is financed anyway",
+     "    base = amount - claim_atto\n",
+     "    base = amount\n"),
+    ("credit: an unsettled claim cuts the debt",
+     """    return base, (base if finding == "SUPPORTED" else amount)""",
+     "    return base, base"),
+    ("credit: a supported claim leaves the full debt standing",
+     """    return base, (base if finding == "SUPPORTED" else amount)""",
+     "    return base, amount"),
+    ("credit: the buyer's word alone moves the finding (floor and mirror)",
+     """                if credit_finding != "INSUFFICIENT" and not credit_corroboration:""",
+     "                if False:"),
+    ("credit: an unexamined item corroborates",
+     """                    i for i in (str(x).strip() for x in named) if i in ex_ids))""",
+     """                    i for i in (str(x).strip() for x in named)))"""),
+    ("credit: a contradicted claim raises no risk",
+     """                if credit_finding == "NOT_SUPPORTED":
+                    conflicts = sorted(set(conflicts + ["CREDIT_CLAIM_CONTRADICTED"]))""",
+     ""),
+    ("credit: a claim finding outside the enum is waved through",
+     """                if credit_finding not in FINDINGS:
+                    raise gl.vm.UserError(
+                        f"{ERROR_LLM} credit_claim_finding outside the enum: {credit_finding}")""",
+     ""),
+    ("equivalence: the claim finding is not compared",
+     """            if mine["credit_claim_finding"] != theirs.get("credit_claim_finding"):""",
+     "            if False:"),
+    ("money: the advance is priced on the uncontested invoice",
+     "        advance = self._base(inv) * int(inv.advance_rate_bps) // 10_000",
+     "        advance = int(inv.amount_atto) * int(inv.advance_rate_bps) // 10_000"),
+    ("money: repayment ignores what the judgment says is owed",
+     "        amount = self._due(inv)",
+     "        amount = int(inv.amount_atto)"),
+    ("money: the fee is charged on the contested part too",
+     "        fee = self._base(inv) * int(inv.fee_bps) // 10_000",
+     "        fee = int(inv.amount_atto) * int(inv.fee_bps) // 10_000"),
+    ("money: struck terms keep their base and debt",
+     """        inv.base_atto = u256(0)
+        inv.due_atto = u256(0)
+        inv.identity_tier = \"\"
+""",
+     ""),
+
     # ── the accept-control: must stay GREEN ──
     ("CONTROL (must survive)",
-     '"version": "0.1.2",',
+     '"version": "0.2.0",',
      '"version": "0.0.9",  # control'),
 ]
 
-EXPECTED_MIN_GUARDS = 60
+EXPECTED_MIN_GUARDS = 110
 
 
 def run_suite(cwd: pathlib.Path) -> bool:

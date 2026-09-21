@@ -8,7 +8,10 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getAssessment, getEvidence, getInvoice, getClaimable, invalidateReads,
+  CREDIT_FINDING_LABEL, IDENTITY_TIER_LABEL, creditClaimProblem, parseGenAmount, validLei,
+} from "../../lib/entity";
+import {
+  getAssessment, getConfig, getEvidence, getInvoice, getClaimable, invalidateReads,
 } from "@/lib/read";
 import type { Assessment, Invoice, Manifest } from "@/lib/types";
 import {
@@ -172,6 +175,14 @@ export function Room({ id }: { id: string }) {
           {inv.buyer_dispute_withdrawn_epoch ? (
             <span className="stamp tone-neutral">dispute withdrawn</span>
           ) : null}
+          {inv.credit_claim_epoch && !inv.credit_claim_withdrawn_epoch ? (
+            <span className="stamp tone-hold">part contested by the buyer</span>
+          ) : null}
+          {inv.identity_tier ? (
+            <span className={`stamp ${inv.identity_tier === "REGISTERED" ? "tone-good" : "tone-neutral"}`}>
+              {IDENTITY_TIER_LABEL[inv.identity_tier] ?? inv.identity_tier}
+            </span>
+          ) : null}
           {(inv.status === "FUNDED" || inv.status === "REPAID") && inv.monitoring !== "NONE" ? (
             <span className={`stamp ${inv.monitoring === "NORMAL" ? "tone-active" : "tone-hold"}`}>
               monitoring {MONITORING_LABEL[inv.monitoring] ?? inv.monitoring}
@@ -187,6 +198,19 @@ export function Room({ id }: { id: string }) {
           <p className="v-body" style={{ margin: 0, fontSize: 13 }}>
             A dispute was filed and withdrawn by the buyer&apos;s wallet; the
             next judgment reads that history.
+          </p>
+        ) : null}
+        {inv.credit_claim_epoch && !inv.credit_claim_withdrawn_epoch ? (
+          <p className="note" style={{ margin: 0 }}>
+            The buyer&apos;s wallet contests {formatGen(inv.credit_claim_atto)} GEN
+            of this invoice: “{inv.credit_claim_text}” That part is not
+            financed. Whether it is still owed is for the panel.
+          </p>
+        ) : null}
+        {assessment?.credit_claim_open && assessment.credit_claim_finding
+          && CREDIT_FINDING_LABEL[assessment.credit_claim_finding] ? (
+          <p className="v-body" style={{ margin: 0, fontSize: 13 }}>
+            On the contested part, {CREDIT_FINDING_LABEL[assessment.credit_claim_finding]}.
           </p>
         ) : null}
       </div>
@@ -343,6 +367,13 @@ function Actions({
   ) => Promise<void>;
 }) {
   const [disputeText, setDisputeText] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditText, setCreditText] = useState("");
+  const [lei, setLei] = useState("");
+  const [minInvoice, setMinInvoice] = useState(10n ** 16n);
+  useEffect(() => {
+    void getConfig().then((c) => setMinInvoice(BigInt(c.min_invoice_atto))).catch(() => undefined);
+  }, []);
   const [challengeReason, setChallengeReason] = useState("");
   const [challengeItems, setChallengeItems] = useState<DraftItem[]>([blank()]);
   const [recommit, setRecommit] = useState(false);
@@ -475,16 +506,93 @@ function Actions({
       </ActionCard>,
     );
   }
+  const creditOpen =
+    inv.credit_claim_epoch > 0 && !inv.credit_claim_withdrawn_epoch;
+  if (isBuyer && creditOpen) {
+    cards.push(
+      <ActionCard key="credit-withdraw" title="Withdraw the contested part" quiet
+        body="For a shortfall settled off-chain. Terms do not spring back -
+          only a fresh judgment can price the record again.">
+        <button className="btn" disabled={busy}
+          onClick={() => void write("withdraw_credit_claim", [id], 0n,
+            P.creditClaimWithdrawn(id), "Withdrawn. The record keeps the history.")}>
+          Withdraw the claim
+        </button>
+      </ActionCard>,
+    );
+  }
+  if (isBuyer && !creditOpen
+      && !["REPAID", "SETTLEMENT_READY", "SETTLED", "CANCELLED", "EXPIRED"].includes(inv.status)) {
+    const claimAtto = parseGenAmount(creditAmount);
+    const problem = creditAmount
+      ? creditClaimProblem(claimAtto, amount, minInvoice) : "";
+    cards.push(
+      <ActionCard key="credit" title="Contest part of the invoice" quiet
+        body="A short delivery or a credit note. Unlike a dispute it does not deny the
+          invoice: the contested part stops being financed, and the panel decides
+          whether you still owe it.">
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={creditAmount} inputMode="decimal"
+            placeholder="Contested amount in GEN"
+            onChange={(e) => setCreditAmount(e.target.value)} />
+          <textarea rows={3} value={creditText}
+            placeholder="What was short, and what shows it?"
+            onChange={(e) => setCreditText(e.target.value)} />
+          {problem ? <p className="note" style={{ margin: 0 }}>{problem}</p> : null}
+          <button className="btn"
+            disabled={busy || !claimAtto || !!problem || creditText.trim().length < 10}
+            onClick={() => void write("file_credit_claim",
+              [id, String(claimAtto), creditText.trim()], 0n,
+              P.creditClaimFiled(id), "Your claim is on the record.")}>
+            File the claim
+          </button>
+        </div>
+      </ActionCard>,
+    );
+  }
   if (isBuyer && ["FUNDED", "DEFAULTED"].includes(inv.status)) {
+    const due = BigInt(inv.due_atto);
     cards.push(
       <ActionCard key="repay" title="Repay the invoice"
-        body={`The full amount, in one payment: ${formatGen(inv.amount_atto)} GEN.
+        body={`The amount owed, in one payment: ${formatGen(due)} GEN.
           The contract holds it until the deterministic split executes.`}>
         <button className="btn" disabled={busy}
-          onClick={() => void write("repay", [id], amount,
+          onClick={() => void write("repay", [id], due,
             P.statusIs(id, ["REPAID"]), "Repayment received into custody.")}>
-          Repay {formatGen(inv.amount_atto)} GEN
+          Repay {formatGen(due)} GEN
         </button>
+      </ActionCard>,
+    );
+  }
+
+  // either party: name the legal entity this wallet acts for ───────────────
+  const mySide = isSeller ? "seller" : isBuyer ? "buyer" : null;
+  const myEntity = isSeller ? inv.seller_entity : isBuyer ? inv.buyer_entity : null;
+  if (mySide && !myEntity
+      && ["DRAFT", "COMMITTED", "PENDING_FINALITY", "FINANCEABLE",
+          "NOT_FINANCEABLE", "REVIEW"].includes(inv.status)) {
+    const ok = validLei(lei);
+    cards.push(
+      <ActionCard key="entity" title="Name your legal entity" quiet
+        body="Your Legal Entity Identifier from the public LEI register. The contract
+          looks the record up itself and the panel checks it names the same party the
+          documents do. When both sides are confirmed and the buyer has countersigned,
+          the highest advance applies. Set once.">
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={lei} maxLength={20} autoCapitalize="characters"
+            placeholder="Twenty character identifier"
+            onChange={(e) => setLei(e.target.value.toUpperCase().replace(/\s/g, ""))} />
+          {lei && !ok ? (
+            <p className="note" style={{ margin: 0 }}>
+              That is not a valid identifier yet. Check it against your registration.
+            </p>
+          ) : null}
+          <button className="btn" disabled={busy || !ok}
+            onClick={() => void write("attest_entity", [id, "GLEIF", lei], 0n,
+              P.entityAttested(id, mySide), "Your entity is on the record.")}>
+            Name this entity
+          </button>
+        </div>
       </ActionCard>,
     );
   }

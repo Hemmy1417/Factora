@@ -82,6 +82,8 @@ export const CONFLICT_LABEL: Record<string, string> = {
   PAYMENT_TERMS_CONFLICT: "Payment terms conflict",
   BUYER_DISPUTE_OPEN: "The buyer's own wallet disputes this invoice",
   EXTERNAL_CONTRADICTION: "An external source contradicts the record",
+  ENTITY_CONTRADICTED: "The public register contradicts a named party",
+  CREDIT_CLAIM_CONTRADICTED: "The record contradicts the part the buyer contests",
   OTHER_CONFLICT: "Other material conflict",
 };
 

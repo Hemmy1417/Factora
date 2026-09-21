@@ -29,6 +29,17 @@ export type Invoice = {
   advance_rate_bps: number;
   fee_bps: number;
   advance_atto: string;
+  /** what the effective terms finance: the invoice less any contested part */
+  base_atto: string;
+  /** what the buyer owes under the effective judgment */
+  due_atto: string;
+  identity_tier: string;
+  seller_entity: EntityClaim | null;
+  buyer_entity: EntityClaim | null;
+  credit_claim_atto: string;
+  credit_claim_text: string;
+  credit_claim_epoch: number;
+  credit_claim_withdrawn_epoch: number;
   provider: string;
   funded_epoch: number;
   funded_advance_atto: string;
@@ -100,6 +111,13 @@ export type Assessment = {
   buyer_acknowledged: boolean;
   buyer_dispute_open: boolean;
   buyer_dispute_withdrawn: boolean;
+  identity?: { seller: string; buyer: string };
+  identity_tier?: string;
+  credit_claim_open?: boolean;
+  credit_claim_atto?: string;
+  credit_claim_finding?: string;
+  base_atto?: string;
+  due_atto?: string;
   decision: string;
   risk: string;
   score: number;
@@ -151,3 +169,10 @@ export type ChainConfig = {
   risks: string[];
   statuses: string[];
 };
+
+/** A party's own wallet named its legal entity in a public register. */
+export interface EntityClaim {
+  registry: string;
+  entity_id: string;
+  epoch: number;
+}

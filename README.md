@@ -8,7 +8,7 @@
 
 A business is owed money through a legitimate invoice and needs the capital now. A factoring provider will advance it - if the obligation is real. That fact lives in fragmented, unstructured evidence: the invoice, the purchase order, the delivery trail, the buyer's standing, the disputes nobody mentions. No price feed can settle it. Factora commits that evidence on-chain, puts it to a validator panel that judges it under consensus, and converts the judgment into bounded financing terms through a code table the model never touches.
 
-Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5`](https://explorer-studio.genlayer.com/address/0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5) on GenLayer StudioNet
+Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: [`0x117b03D79063F4aE882bA16B17398f4Dd49814e1`](https://explorer-studio.genlayer.com/address/0x117b03D79063F4aE882bA16B17398f4Dd49814e1) on GenLayer StudioNet
 
 ## What it is
 
@@ -25,8 +25,9 @@ Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: 
 1. Register the receivable: buyer wallet, reference, amount, dates. Identity is hashed; duplicates are refused.
 2. Commit evidence version 1 - the exact bytes the panel will read.
 3. Invite the buyer's wallet to acknowledge the obligation on-chain (optional, but the advance table prices its absence).
-4. Request assessment. The verdict arms a challenge window; promotion after it is permissionless.
-5. Once funded, claim the advance. After repayment settles, claim the reserve.
+4. Name your legal entity by its identifier in the public LEI register, and invite the buyer to do the same. The contract looks each record up itself. When both are confirmed and the buyer has countersigned, the top advance table applies.
+5. Request assessment. The verdict arms a challenge window; promotion after it is permissionless.
+6. Once funded, claim the advance. After repayment settles, claim the reserve.
 
 ### For a capital provider
 
@@ -40,7 +41,9 @@ Live app: [factora-gen.vercel.app](https://factora-gen.vercel.app) · Contract: 
 1. Acknowledge the obligation - the one identity fact a seller cannot manufacture.
 2. Or dispute it on-chain: an open buyer dispute is contract-verified adverse evidence, no assessment run over it can conclude financeable, and a dispute filed AFTER a judgment strikes that judgment's effect - pending or effective terms are invalidated and finalization and funding stay blocked until a reassessment reads the dispute.
 3. Withdraw a dispute resolved off-chain. Withdrawal is history, not erasure: the next panel is told a dispute was filed and withdrawn, and terms return only through a fresh judgment.
-4. Repay the invoice amount, in full, from the acknowledged wallet only.
+4. Contest PART of the invoice - a short delivery, a credit note - without denying the rest. The contested part stops being financed the moment the claim is filed; a judgment decides whether it is still owed. Like a dispute, a claim filed after a judgment strikes that judgment's effect, and it can be withdrawn.
+5. Name your own legal entity in the public register (see the seller's step 4).
+6. Repay the amount owed under the effective judgment, in full, from the buyer wallet only.
 
 ### For anyone
 
@@ -51,8 +54,41 @@ Finalize lapsed verdicts, run reassessments, mark expiry and default, prepare an
 | Decision | Meaning |
 |---|---|
 | `FINANCEABLE` | The obligation, both parties and the amounts are supported with no unresolved material contradiction. Terms come from the table. |
-| `REVIEW_REQUIRED` | The record is genuinely mixed or insufficient. No terms. Also the forced landing for an open buyer dispute, HIGH risk, or a record with nothing examined. |
+| `REVIEW_REQUIRED` | The record is genuinely mixed or insufficient. No terms. Also the forced landing for an open buyer dispute, a party the public register contradicts, HIGH risk, or a record with nothing examined. |
 | `NOT_FINANCEABLE` | The record contradicts the obligation or a party. No terms. |
+
+### The advance table
+
+Money reads two pinned fields, decision and risk, and two facts the contract can stand behind: the buyer's countersignature, and the identity classes a judged round recorded.
+
+| Record | LOW risk | MEDIUM risk |
+|---|---|---|
+| Countersigned, and both parties confirmed by the public register | 85% | 70% |
+| Countersigned, identity resting on wallet keys | 75% | 60% |
+| Not countersigned | 60% | 50% |
+
+Fees are 3% (LOW) and 5% (MEDIUM). Advance and fee are both computed on the financed base: the invoice, less any part the buyer has contested.
+
+### The identity ladder
+
+A party names an identifier and nothing else. The contract composes the register's address from a fixed table, every validator fetches the record itself, and the class is derived in code.
+
+| Class | When |
+|---|---|
+| `NONE` | the party attested nothing |
+| `DECLARED` | attested, but the register could not be read, the registration is not current, or the documents do not name the party well enough to tell |
+| `REGISTERED` | the register's record is active and current, and the panel found it names the same party the committed documents do |
+| `CONTRADICTED` | the register says the entity is not active, or the panel found the documents name a different party. Holds the record at review. |
+
+### The contested part
+
+| Panel finding on the claim | Financed | Owed by the buyer |
+|---|---|---|
+| `SUPPORTED`, with an examined item behind it | invoice less the claim | invoice less the claim |
+| `INSUFFICIENT` | invoice less the claim | the full invoice |
+| `NOT_SUPPORTED`, with an examined item behind it | invoice less the claim, one risk class worse | the full invoice |
+
+A `SUPPORTED` or `NOT_SUPPORTED` finding with no examined item named behind it falls to `INSUFFICIENT` in code: the buyer's word alone cannot cut the debt, and the seller's silence alone cannot mark the buyer as contesting against the evidence.
 
 ## Lifecycle
 
@@ -97,9 +133,9 @@ The model recommends nothing in basis points and does not even name the decision
 | | |
 |---|---|
 | Network | GenLayer StudioNet (chain `61999`) |
-| Address | `0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5` |
-| Deploy tx | `0xedb264ec144e5aaefbc033439fa2e1bb39b4085adfa87391839d92cb46b97bfe` |
-| Version | `0.1.2` (read live from `get_config`) |
+| Address | `0x117b03D79063F4aE882bA16B17398f4Dd49814e1` |
+| Deploy tx | `0x662a870268c57322a447bededcdcdf9b8893f58d9245f8d6bae74c4eae258b77` |
+| Version | `0.2.0` (read live from `get_config`) |
 | Source | `contracts/factora.py` |
 | Runner | `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6` (pinned) |
 | Owner / admin key | **none** - `__init__` sets four counters and nothing else |
@@ -113,6 +149,9 @@ The model recommends nothing in basis points and does not even name the decision
 | `acknowledge_invoice` | buyer wallet | - | the countersignature; raises the advance table |
 | `file_buyer_dispute` | buyer wallet | - | contract-verified adverse evidence; strikes any judgment that never read it |
 | `withdraw_buyer_dispute` | buyer wallet | - | ends the dispute, keeps its history |
+| `file_credit_claim` | buyer wallet | - | contests part of the invoice; that part is never financed; strikes any judgment that never read it |
+| `withdraw_credit_claim` | buyer wallet | - | ends the claim, keeps its history |
+| `attest_entity` | seller or buyer, each for itself | - | one identifier per party, check digits verified in code, register chosen from a fixed table, written once |
 | `request_assessment` | seller | - | one judgment per version; arms the challenge window |
 | `finalize_assessment` | anyone | - | permissionless promotion after the window |
 | `challenge` | anyone but the seller | bond | appends evidence as the next version; snapshots what it challenges |
@@ -120,7 +159,7 @@ The model recommends nothing in basis points and does not even name the decision
 | `challenge_lapse` | anyone | - | after 1h unresolved: restores the snapshot, frees the bond |
 | `fund` | any non-party | exact advance | derived from state, never caller-chosen |
 | `claim_advance` | seller | - | pull-payment sugar over `claim` |
-| `repay` | buyer wallet | exact amount | into custody |
+| `repay` | buyer wallet | exact amount owed | into custody |
 | `prepare_settlement` | anyone | - | computes, conserves and freezes the split |
 | `execute_settlement` | anyone | - | pays the prepared record, once |
 | `claim` | anyone owed | - | the only external value path; ledger zeroes before transfer |
@@ -134,6 +173,9 @@ The model recommends nothing in basis points and does not even name the decision
 
 - Every economically decisive field the payout math reads is computed deterministically in contract code - decision and risk are DERIVED from the panel's findings, not returned by it - and the derived values sit inside the validator equivalence set. There is no third category.
 - The recorded dossier is consensus-bound, not leader-authored: validators compare the record's rows structurally, re-derive each digest from the stored bytes, and refuse committed-document excerpts that differ from the committed bytes.
+- Every byte of a fetched page that enters the record is text the validator fetched itself: the leader's excerpt must be a prefix of, or equal to, the validator's own. An honest page with a fabricated ending, sealed by a correct digest, finds no validator. The price is stated: a leader whose render ran longer than a validator's is refused too, and the round is run again.
+- Register records are bound more tightly still. Each node keeps the same canonical subset of the record (name, status, jurisdiction, address) and drops the response's volatile envelope, so the stored bytes must be EQUAL across nodes, and identity classes and the claim finding are compared exactly because they steer money.
+- Codes the contract owns (`ENTITY_CONTRADICTED`, `CREDIT_CLAIM_CONTRADICTED`) are derived in code from a compared finding. A model cannot raise one by naming it or drop one by leaving it out.
 - A validator whose own rerun fails disagrees rather than throwing, so a broken model rotates the round instead of discarding it.
 - Deterministic coercions run inside the judged block - an open buyer dispute, HIGH risk, or an empty examined set can never emerge FINANCEABLE - so every validator lands on the identical corrected verdict.
 - The obligor's repudiation outranks a verdict that never read it: a buyer dispute filed after a judgment deterministically strikes that judgment's effect - a pending verdict loses its promotion, effective terms are zeroed, funding and finalization refuse - and a lapsed challenge re-applies the same rule so a snapshot restore cannot resurrect struck terms. The dossier itself is preserved; only its authority is gone.
@@ -252,7 +294,7 @@ cd web && npm install && npm test && npm run build
 ```
 
 ```bash
-python scripts/verify_deployment.py 0x5755D21345f0Ea0BaD1909FC320562D41c9c2aE5
+python scripts/verify_deployment.py 0x117b03D79063F4aE882bA16B17398f4Dd49814e1
 ```
 
 Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`, then `npm run dev`.
@@ -270,7 +312,8 @@ Run the app locally: set `web/.env.local` from the table in `docs/DEPLOYMENT.md`
 
 - Wallets are keys, not legal identities. The buyer countersignature proves the obligation is acknowledged by whoever holds the buyer key the seller named at registration - it binds the debt to a key, and it is the strongest fact in the record precisely because the seller cannot mint it. It does not prove the key belongs to "MegaRetail Ltd", and neither the contract nor the panel pretends it does: every committed document reaches the panel labelled as the seller's declaration, the countersignature and dispute as wallet-signed chain facts, and fetched pages as contract-retrieved.
 - The table prices that honesty: a record whose only voice is the seller's caps the advance in code, countersigned records earn the full rate, and identity findings the panel returns are about coherence of the record, never about legal personhood.
-- Strengthening path, deliberately out of MVP scope: registrar-anchored identity attestations (a signed statement binding a wallet to a registered business, verified as a frozen external source) and signed evidence sources (documents carrying their issuer's signature, verified in code before the panel reads them) would raise the countersignature from key-bound to identity-bound. The evidence pipeline already supports frozen external URLs fetched under consensus, which is where such attestations would plug in.
+- v0.2.0 takes the first step on the path this section used to describe as future work. Each party's own wallet names its legal entity by identifier; the contract, not the party, chooses where to look it up; every validator reads the register itself; and the top advance table is reserved for a record where both parties are confirmed. What that proves: the entity exists, is active, and is the party the committed documents name. What it does not prove: that the wallet belongs to that entity. A seller who controls a second wallet can still name a real company's identifier for it, and the register will confirm the company, not the key. The register has no field that binds an identifier to a wallet, so this build does not pretend to close that gap; it prices the part it can verify and says so.
+- Still out of scope: signed evidence sources (documents carrying their issuer's signature, verified in code before the panel reads them), and verifiable credentials that bind an identifier to a key.
 
 ## Design notes
 

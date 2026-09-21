@@ -29,6 +29,45 @@ AMOUNT = 10**17          # the canonical test invoice: 0.1 GEN
 
 URL_BUYER_SITE = "https://buyer.example.com/about"
 
+
+def make_lei(base18):
+    """A Legal Entity Identifier with valid ISO 7064 mod 97-10 check digits."""
+    digits = "".join(str(int(ch, 36)) for ch in base18 + "00")
+    return base18 + f"{98 - int(digits) % 97:02d}"
+
+
+SELLER_LEI = make_lei("FACTORASELLER00001")
+BUYER_LEI = make_lei("FACTORABUYER000001")
+
+
+def gleif_record(lei, name, status="ACTIVE", registration="ISSUED", country="NG"):
+    """The register's answer for one entity, in GLEIF's own shape, with the
+    volatile envelope a real response carries and the contract must ignore."""
+    return json.dumps({
+        "meta": {"goldenCopy": {"publishDate": "2026-09-21T08:00:00Z"}},
+        "data": {"type": "lei-records", "id": lei, "attributes": {
+            "lei": lei,
+            "entity": {"legalName": {"name": name, "language": "en"},
+                       "otherNames": [], "status": status, "jurisdiction": country,
+                       "legalAddress": {"addressLines": ["1 Wharf Road"], "city": "Lagos",
+                                        "region": "NG-LA", "country": country,
+                                        "postalCode": "100001"}},
+            "registration": {"status": registration,
+                             "lastUpdateDate": "2026-08-01T00:00:00Z"}}}})
+
+
+def register_pages():
+    page(f"lei-records/{SELLER_LEI}", gleif_record(SELLER_LEI, "Acme Industrial Supplies Limited"))
+    page(f"lei-records/{BUYER_LEI}", gleif_record(BUYER_LEI, "MegaRetail Ltd"))
+
+
+def attest_both(module, c, iid):
+    register_pages()
+    as_(module, SELLER, 0)
+    c.attest_entity(iid, "GLEIF", SELLER_LEI)
+    as_(module, BUYER, 0)
+    c.attest_entity(iid, "GLEIF", BUYER_LEI)
+
 # Test wall-clock. Tests advance it to pass real time.
 _NOW = [1_760_000_000]
 _SKEW = {}
@@ -343,6 +382,8 @@ def panel_answer(n_items=3, decision="FINANCEABLE", risk="LOW", score=91,
         "examined": examined,
         "excluded": [{"id": i, "code": c} for i, c in excluded],
         "reason": reason,
+        # Read only when that side attested an entity the register answers for.
+        "seller_entity_match": "MATCH", "buyer_entity_match": "MATCH",
     }
     ans.update(over)
     return ans
@@ -369,10 +410,15 @@ def created(module, c, amount=AMOUNT, window=1800, due_in=30 * 86400,
                             _NOW[0] + due_in, _NOW[0] + fund_in, window)
 
 
-def committed(module, c, items=None, **kw):
+def committed(module, c, items=None, registered=True, **kw):
+    """`registered` attests both parties to the public register, which is
+    what the top advance table requires. Pass False for a record whose
+    identities rest on keys alone."""
     iid = created(module, c, **kw)
     as_(module, SELLER, 0)
     c.commit_evidence(iid, json.dumps(items or demo_items()))
+    if registered:
+        attest_both(module, c, iid)
     return iid
 
 

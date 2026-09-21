@@ -1,6 +1,6 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
-# v0.1.2
+# v0.2.0
 #
 # FACTORA — invoice factoring where the financeability decision is a JUDGMENT:
 # a GenLayer validator panel reads the committed evidence behind a real-world
@@ -59,6 +59,8 @@ MAX_URL_CHARS = 400
 MAX_FETCH_CHARS = 3_000         # per fetched page, into the record
 MAX_REASON_CHARS = 600
 MAX_DISPUTE_TEXT_CHARS = 1_000
+MAX_CREDIT_TEXT_CHARS = 1_000
+MAX_REGISTRY_CHARS = 3_000      # per registry record, into the record
 
 # ── the deterministic terms table ────────────────────────────────────────────
 # The panel pins a DECISION and a RISK CLASS. Money reads only this table.
@@ -70,7 +72,17 @@ MAX_DISPUTE_TEXT_CHARS = 1_000
 # obligation the buyer has not countersigned on-chain is declared-only, and
 # no panel enthusiasm can raise the advance above the declared-only ceiling.
 
+#
+# v0.2.0 prices the other half of that sentence. A countersignature proves a
+# KEY agreed; it does not prove the key belongs to a company. The top table
+# is reserved for a record where both parties are REGISTERED: each wallet
+# attested its own legal entity, every validator fetched that entity's record
+# from a fixed public register, and the panel found it names the same party
+# the documents do. An acknowledged record whose identities rest on keys
+# alone gets the middle table.
+
 ADVANCE_BPS = {"LOW": 8_500, "MEDIUM": 7_000}
+ADVANCE_BPS_KEYS_ONLY = {"LOW": 7_500, "MEDIUM": 6_000}
 ADVANCE_BPS_NO_ACK = {"LOW": 6_000, "MEDIUM": 5_000}
 FEE_BPS = {"LOW": 300, "MEDIUM": 500}
 MIN_ADVANCE_BPS = 3_000
@@ -97,7 +109,8 @@ EVIDENCE_TYPES = ("invoice", "purchase_order", "delivery_receipt", "contract",
 CONFLICT_CODES = ("AMOUNT_MISMATCH", "DATE_INCONSISTENT", "PARTY_MISMATCH",
                   "DUPLICATE_INDICATION", "DELIVERY_CONTRADICTED",
                   "PAYMENT_TERMS_CONFLICT", "BUYER_DISPUTE_OPEN",
-                  "EXTERNAL_CONTRADICTION", "OTHER_CONFLICT")
+                  "EXTERNAL_CONTRADICTION", "ENTITY_CONTRADICTED",
+                  "CREDIT_CLAIM_CONTRADICTED", "OTHER_CONFLICT")
 EXCLUSION_CODES = ("UNREADABLE", "IRRELEVANT", "DUPLICATE", "UNREACHABLE",
                    "OVERSIZED", "OTHER")
 
@@ -106,7 +119,31 @@ EXCLUSION_CODES = ("UNREADABLE", "IRRELEVANT", "DUPLICATE", "UNREACHABLE",
 # need not agree on them; these do steer, so they are compared exactly.
 HARD_CONFLICTS = ("AMOUNT_MISMATCH", "PARTY_MISMATCH", "DUPLICATE_INDICATION",
                   "DELIVERY_CONTRADICTED", "PAYMENT_TERMS_CONFLICT",
-                  "BUYER_DISPUTE_OPEN", "EXTERNAL_CONTRADICTION")
+                  "BUYER_DISPUTE_OPEN", "EXTERNAL_CONTRADICTION",
+                  "ENTITY_CONTRADICTED", "CREDIT_CLAIM_CONTRADICTED")
+
+# Codes the CONTRACT owns. Each is derived in code from a chain fact or a
+# compared finding, so a model cannot raise one by naming it and cannot drop
+# one by leaving it out. BUYER_DISPUTE_OPEN joined the list when the first
+# live control ran: shown a credit claim and no dispute, the panel named the
+# dispute code anyway, and a partial objection was priced as a repudiation.
+# The model is no longer offered these codes at all.
+CODE_OWNED_CONFLICTS = ("BUYER_DISPUTE_OPEN", "ENTITY_CONTRADICTED",
+                        "CREDIT_CLAIM_CONTRADICTED")
+
+# ── the register of registers ───────────────────────────────────────────────
+# A party names an ENTITY ID and nothing else. The contract composes the URL
+# from this table, so the subject of the judgment never chooses the source
+# that vouches for it. One register today; the table is the extension point.
+REGISTRIES = {
+    "GLEIF": {
+        "url": "https://api.gleif.org/api/v1/lei-records/{id}",
+        "label": "Global LEI Index (GLEIF), the public register of Legal "
+                 "Entity Identifiers",
+    },
+}
+ENTITY_MATCHES = ("MATCH", "MISMATCH", "UNCLEAR")
+ENTITY_CLASSES = ("NONE", "DECLARED", "REGISTERED", "CONTRADICTED")
 
 # One step apart on this ladder is honest disagreement between two readings
 # of the same record; two steps is a different record.
@@ -114,7 +151,8 @@ FINDING_STEP = {"SUPPORTED": 0, "INSUFFICIENT": 1, "NOT_SUPPORTED": 2}
 
 
 def _derive_verdict(findings: dict, conflicts: list, dispute_open: bool,
-                    examined_count: int) -> tuple:
+                    examined_count: int,
+                    entity_contradicted: bool = False) -> tuple:
     """THE MODEL NEVER RETURNS A DECISION OR A RISK CLASS. It judges the
     three evidence pillars and names conflicts; this function - pure code,
     run identically inside every validator's own judgment - composes the two
@@ -127,6 +165,7 @@ def _derive_verdict(findings: dict, conflicts: list, dispute_open: bool,
       any pillar NOT_SUPPORTED                          -> NOT_FINANCEABLE
       else: open buyer dispute, nothing examined,
             the transaction pillar merely INSUFFICIENT,
+            a public register contradicting a party,
             or two-plus hard conflicts                  -> REVIEW_REQUIRED
       else                                              -> FINANCEABLE
     Risk: HIGH on any NOT_SUPPORTED or two-plus hard conflicts; MEDIUM on
@@ -143,7 +182,7 @@ def _derive_verdict(findings: dict, conflicts: list, dispute_open: bool,
         risk = "LOW"
     if any_not:
         decision = "NOT_FINANCEABLE"
-    elif (dispute_open or examined_count == 0
+    elif (dispute_open or examined_count == 0 or entity_contradicted
           or findings.get("transaction_finding") == "INSUFFICIENT"
           or len(hard) >= 2):
         decision = "REVIEW_REQUIRED"
@@ -205,6 +244,106 @@ def _defang(s) -> str:
     prompt reserves for its own instructions — half a sanitizer is worse
     than none, because it ships with an assurance."""
     return str(s or "").replace("<<<", "‹‹‹").replace(">>>", "›››")
+
+
+def _valid_lei(lei: str) -> bool:
+    """ISO 17442: eighteen alphanumerics and two check digits, valid under
+    ISO 7064 mod 97-10. Checked in code so a mistyped identifier is refused
+    at the door instead of being judged as somebody else's company."""
+    if len(lei) != 20 or not lei.isalnum() or lei != lei.upper():
+        return False
+    if not lei[18:].isdigit():
+        return False
+    digits = "".join(str(int(ch, 36)) for ch in lei)
+    return int(digits) % 97 == 1
+
+
+def _stable_gleif(body: str, lei: str) -> tuple:
+    """-> (canonical_json, entity_active, registration_current).
+
+    Only the fields that identify the entity are kept, in a canonical order,
+    so two honest fetches of one record store the SAME bytes and a validator
+    can require the leader's bytes to equal its own. Anything that is not
+    this LEI's record is not a record: ("", False, False)."""
+    try:
+        attrs = json.loads(body)["data"]["attributes"]
+        if str(attrs.get("lei", "")).strip().upper() != lei:
+            return "", False, False
+        ent = attrs.get("entity") or {}
+        reg = attrs.get("registration") or {}
+        addr = ent.get("legalAddress") or {}
+        others = [str((n or {}).get("name", "")) for n in (ent.get("otherNames") or [])]
+        subset = {
+            "lei": lei,
+            "legal_name": str((ent.get("legalName") or {}).get("name", "")),
+            "other_names": sorted(n for n in others if n)[:5],
+            "entity_status": str(ent.get("status", "")).upper(),
+            "registration_status": str(reg.get("status", "")).upper(),
+            "jurisdiction": str(ent.get("jurisdiction", "")),
+            "legal_address": {
+                "lines": [str(x) for x in (addr.get("addressLines") or [])][:4],
+                "city": str(addr.get("city", "")),
+                "region": str(addr.get("region", "")),
+                "country": str(addr.get("country", "")),
+                "postal_code": str(addr.get("postalCode", "")),
+            },
+        }
+        if not subset["legal_name"]:
+            return "", False, False
+        text = _defang(_canonical(subset))[:MAX_REGISTRY_CHARS]
+        return (text, subset["entity_status"] == "ACTIVE",
+                subset["registration_status"] == "ISSUED")
+    except Exception:
+        return "", False, False
+
+
+def _entity_class(claimed: bool, reachable: bool, active: bool,
+                  current: bool, match: str) -> str:
+    """The identity ladder, in code. The register can lift a party to
+    REGISTERED or sink it to CONTRADICTED; nothing a party writes can do
+    either, because the only input a party controls is the identifier.
+
+      no attestation                                    -> NONE
+      attested, record not retrievable                  -> DECLARED
+      record says the entity is not ACTIVE              -> CONTRADICTED
+      registration not currently ISSUED                 -> DECLARED
+      panel: register and documents name one party      -> REGISTERED
+      panel: they name different parties                -> CONTRADICTED
+      panel: the documents do not settle it             -> DECLARED"""
+    if not claimed:
+        return "NONE"
+    if not reachable:
+        return "DECLARED"
+    if not active:
+        return "CONTRADICTED"
+    if not current:
+        return "DECLARED"
+    return {"MATCH": "REGISTERED", "MISMATCH": "CONTRADICTED"}.get(match, "DECLARED")
+
+
+def _advance_table(acked: bool, entity: dict) -> tuple:
+    """-> (tier name, advance table). The tier is read from two facts the
+    contract can stand behind: the buyer's on-chain countersignature, and
+    the identity classes a judged round recorded."""
+    if not acked:
+        return "NO_ACK", ADVANCE_BPS_NO_ACK
+    if entity.get("seller") == "REGISTERED" and entity.get("buyer") == "REGISTERED":
+        return "REGISTERED", ADVANCE_BPS
+    return "KEYS_ONLY", ADVANCE_BPS_KEYS_ONLY
+
+
+def _credit_terms(amount: int, claim_open: bool, claim_atto: int,
+                  finding: str) -> tuple:
+    """-> (base, due). What is financed, and what the buyer owes.
+
+    The contested part of an invoice is never financed, whoever turns out to
+    be right: the obligor has said on-chain it will not pay it, and that is
+    a fact about collection, not an opinion about merit. Whether the buyer
+    still OWES it is the judgment: only a SUPPORTED claim reduces the debt."""
+    if not claim_open or claim_atto <= 0:
+        return amount, amount
+    base = amount - claim_atto
+    return base, (base if finding == "SUPPORTED" else amount)
 
 
 def _as_int(v, default: int) -> int:
@@ -329,6 +468,21 @@ class Invoice:
     # can withdraw a dispute they consider resolved — without this, one
     # dispute made REVIEW a hold state with no honest exit
     buyer_dispute_withdrawn_epoch: u256
+    # appended for v0.2.0.
+    # Each party's own wallet names its legal entity: JSON
+    # {"registry", "entity_id", "epoch"} or "". Written once, by that party.
+    seller_entity: str
+    buyer_entity: str
+    # The buyer contests PART of the invoice (short delivery, a credit note).
+    credit_claim_atto: u256
+    credit_claim_text: str
+    credit_claim_epoch: u256
+    credit_claim_withdrawn_epoch: u256
+    # Set at promotion from the judged record: what the terms finance, what
+    # the buyer owes, and which advance table priced it.
+    base_atto: u256
+    due_atto: u256
+    identity_tier: str
 
 
 class Factora(gl.Contract):
@@ -564,6 +718,10 @@ class Factora(gl.Contract):
             settlement="", settled_epoch=u256(0), defaulted_epoch=u256(0),
             cancelled_epoch=u256(0), expired_epoch=u256(0),
             buyer_dispute_withdrawn_epoch=u256(0),
+            seller_entity="", buyer_entity="",
+            credit_claim_atto=u256(0), credit_claim_text="",
+            credit_claim_epoch=u256(0), credit_claim_withdrawn_epoch=u256(0),
+            base_atto=u256(0), due_atto=u256(0), identity_tier="",
         )
         self.identity_registry[identity] = invoice_id
         self.invoice_ids.append(invoice_id)
@@ -684,6 +842,37 @@ class Factora(gl.Contract):
         return (int(inv.buyer_dispute_epoch) != 0
                 and int(inv.buyer_dispute_withdrawn_epoch) == 0)
 
+    def _credit_open(self, inv: Invoice) -> bool:
+        return (int(inv.credit_claim_epoch) != 0
+                and int(inv.credit_claim_withdrawn_epoch) == 0)
+
+    def _objection_unread(self, inv: Invoice, version: int) -> bool:
+        """True when the buyer's standing objections are not the ones the
+        dossier at `version` recorded. A credit claim is matched on amount
+        AND filing epoch, so a withdrawn claim replaced by a larger one is
+        a new objection, not the one the panel read.
+
+        It cuts both ways. A verdict that priced a claim which has since
+        been WITHDRAWN is as stale as one that never read a claim: it still
+        finances and collects the reduced amount after the buyer has said
+        the full invoice is owed. The seller should not have to notice."""
+        raw = self.assessments.get(f"{inv.invoice_id}|{version}")
+        if raw is None:
+            return True
+        d = json.loads(raw)
+        if self._dispute_open(inv) and not d.get("buyer_dispute_open", False):
+            return True
+        if self._credit_open(inv):
+            if not d.get("credit_claim_open", False):
+                return True
+            if str(d.get("credit_claim_atto", "")) != str(int(inv.credit_claim_atto)):
+                return True
+            if _as_int(d.get("credit_claim_epoch"), 0) != int(inv.credit_claim_epoch):
+                return True
+        elif d.get("credit_claim_open", False):
+            return True
+        return False
+
     def _dispute_invalidates(self, inv: Invoice) -> None:
         """THE OBLIGOR'S REPUDIATION OUTRANKS A VERDICT THAT NEVER READ IT.
 
@@ -706,37 +895,31 @@ class Factora(gl.Contract):
         A funded receivable cannot unwind money already moved: it is
         flagged for review, and the dispute is already the loudest row in
         any later reassessment."""
-        if not self._dispute_open(inv):
-            return
         if inv.challenge_open == "yes":
             return
         if inv.status == "PENDING_FINALITY":
-            seen = self._dossier_saw_dispute(inv, int(inv.pending_version))
-            if not seen:
+            if self._objection_unread(inv, int(inv.pending_version)):
                 inv.pending_version = u256(0)
                 inv.pending_until_epoch = u256(0)
                 inv.status = "REVIEW"
                 inv.decision = "REVIEW_REQUIRED"
                 self._strike_terms(inv)
         elif inv.status == "FINANCEABLE":
-            seen = self._dossier_saw_dispute(inv, int(inv.assessed_version))
-            if not seen:
+            if self._objection_unread(inv, int(inv.assessed_version)):
                 inv.status = "REVIEW"
                 inv.decision = "REVIEW_REQUIRED"
                 self._strike_terms(inv)
-        elif inv.status in ("FUNDED", "REPAID"):
+        elif (inv.status in ("FUNDED", "REPAID")
+              and (self._dispute_open(inv) or self._credit_open(inv))):
             inv.monitoring = "REVIEW_REQUIRED"
-
-    def _dossier_saw_dispute(self, inv: Invoice, version: int) -> bool:
-        raw = self.assessments.get(f"{inv.invoice_id}|{version}")
-        if raw is None:
-            return False
-        return bool(json.loads(raw).get("buyer_dispute_open", False))
 
     def _strike_terms(self, inv: Invoice) -> None:
         inv.advance_rate_bps = u256(0)
         inv.fee_bps = u256(0)
         inv.advance_atto = u256(0)
+        inv.base_atto = u256(0)
+        inv.due_atto = u256(0)
+        inv.identity_tier = ""
 
     @gl.public.write
     def file_buyer_dispute(self, invoice_id: str, text: str) -> str:
@@ -780,6 +963,111 @@ class Factora(gl.Contract):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} no dispute is open")
         inv.buyer_dispute_withdrawn_epoch = u256(self._require_clock())
         return "withdrawn"
+
+    @gl.public.write
+    def file_credit_claim(self, invoice_id: str, amount_atto: str, text: str) -> str:
+        """The buyer's wallet contests PART of the invoice: a short delivery,
+        a credit note, a price correction. Unlike a dispute it does not deny
+        the obligation, so it does not hold the whole record at review. The
+        contested part stops being financeable the moment it is filed, and a
+        judgment decides whether the buyer still owes it.
+
+        It is an objection like any other: a verdict that never read it
+        loses its effect, exactly as with a dispute."""
+        inv = self._get(invoice_id)
+        if self._sender() != inv.buyer:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the named buyer wallet files a credit claim")
+        if inv.status in ("REPAID", "SETTLEMENT_READY", "SETTLED",
+                          "CANCELLED", "EXPIRED"):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to contest in {inv.status}")
+        if self._credit_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} a credit claim is already open")
+        try:
+            claim = int(str(amount_atto).strip())
+        except ValueError:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} the contested amount is a whole number of atto")
+        if claim <= 0:
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} the contested amount must be positive")
+        if int(inv.amount_atto) - claim < MIN_INVOICE_ATTO:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} a claim that leaves less than the minimum "
+                "invoice uncontested is a dispute of the whole: file a dispute")
+        text = str(text).strip()
+        if not (10 <= len(text) <= MAX_CREDIT_TEXT_CHARS):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} claim text must be 10-{MAX_CREDIT_TEXT_CHARS} characters")
+        inv.credit_claim_epoch = u256(self._require_clock())
+        inv.credit_claim_atto = u256(claim)
+        inv.credit_claim_text = text
+        inv.credit_claim_withdrawn_epoch = u256(0)
+        self._dispute_invalidates(inv)
+        return "claimed"
+
+    @gl.public.write
+    def withdraw_credit_claim(self, invoice_id: str) -> str:
+        """The honest exit for a shortfall settled off-chain. History, not
+        erasure: the amount and both epochs stay on the record. Terms do not
+        spring back; only a fresh judgment prices the record again."""
+        inv = self._get(invoice_id)
+        if self._sender() != inv.buyer:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only the named buyer wallet can withdraw")
+        if not self._credit_open(inv):
+            raise gl.vm.UserError(f"{ERROR_EXPECTED} no credit claim is open")
+        inv.credit_claim_withdrawn_epoch = u256(self._require_clock())
+        self._dispute_invalidates(inv)
+        return "withdrawn"
+
+    @gl.public.write
+    def attest_entity(self, invoice_id: str, registry: str, entity_id: str) -> str:
+        """A party's own wallet names the legal entity it acts for, as an
+        identifier in a public register. The signer is the party (nobody
+        attests for anybody else), the identifier is checked in code, and the
+        URL the panel will read is composed by the contract from a fixed
+        table. Written once: identities are not shopped between judgments.
+
+        What this proves and what it does not is stated in the README: the
+        register shows the entity exists, is active, and is the party the
+        documents name. It does not show the wallet is that entity's."""
+        inv = self._get(invoice_id)
+        sender = self._sender()
+        if sender == inv.seller:
+            side = "seller"
+        elif sender == inv.buyer:
+            side = "buyer"
+        else:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} only a party to the invoice attests its own entity")
+        if inv.status not in ("DRAFT", "COMMITTED", "PENDING_FINALITY",
+                              "FINANCEABLE", "NOT_FINANCEABLE", "REVIEW"):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} an entity is attested before funding, not in {inv.status}")
+        registry = str(registry).strip().upper()
+        if registry not in REGISTRIES:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} unknown register; the contract reads: "
+                + ", ".join(sorted(REGISTRIES)))
+        entity_id = str(entity_id).strip().upper()
+        if not _valid_lei(entity_id):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} not a valid Legal Entity Identifier "
+                "(twenty characters, check digits included)")
+        mine = inv.seller_entity if side == "seller" else inv.buyer_entity
+        if mine:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} this party already attested its entity")
+        other = inv.buyer_entity if side == "seller" else inv.seller_entity
+        if other and json.loads(other).get("entity_id") == entity_id:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the two parties to an invoice cannot be one entity")
+        record = json.dumps({"registry": registry, "entity_id": entity_id,
+                             "epoch": self._require_clock()})
+        if side == "seller":
+            inv.seller_entity = record
+        else:
+            inv.buyer_entity = record
+        return side
 
     @gl.public.write
     def cancel_invoice(self, invoice_id: str) -> str:
@@ -894,6 +1182,10 @@ class Factora(gl.Contract):
             raise gl.vm.UserError(
                 f"{ERROR_EXPECTED} the buyer disputed after this verdict was "
                 "judged — a reassessment must read the dispute first")
+        if self._objection_unread(inv, version):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer contested part of this invoice "
+                "after the verdict was judged; a reassessment must read the claim first")
         self._promote(inv, json.loads(raw), version)
         return inv.status
 
@@ -911,9 +1203,20 @@ class Factora(gl.Contract):
         inv.risk = risk
         inv.score = u256(_as_int(dossier.get("score"), 0))
 
+        base, due = _credit_terms(
+            int(inv.amount_atto), bool(dossier.get("credit_claim_open", False)),
+            _as_int(dossier.get("credit_claim_atto"), 0),
+            str(dossier.get("credit_claim_finding", "")))
+        inv.base_atto = u256(base)
+        inv.due_atto = u256(due)
+        inv.identity_tier = ""
+
         if decision == "FINANCEABLE":
             acked = int(inv.buyer_ack_epoch) != 0
-            table = ADVANCE_BPS if acked else ADVANCE_BPS_NO_ACK
+            identity = dossier.get("identity")
+            tier, table = _advance_table(
+                acked, identity if isinstance(identity, dict) else {})
+            inv.identity_tier = tier
             adv = table.get(risk)
             fee = FEE_BPS.get(risk)
             if adv is None or fee is None:
@@ -943,6 +1246,15 @@ class Factora(gl.Contract):
                 inv.monitoring = "REVIEW_REQUIRED"
             else:
                 inv.status = "REVIEW" if decision == "REVIEW_REQUIRED" else "NOT_FINANCEABLE"
+
+    def _base(self, inv: Invoice) -> int:
+        """What the effective terms finance: the invoice, less any part the
+        buyer contested in the judged record."""
+        return int(inv.base_atto) or int(inv.amount_atto)
+
+    def _due(self, inv: Invoice) -> int:
+        """What the buyer owes under the effective judgment."""
+        return int(inv.due_atto) or int(inv.amount_atto)
 
     def _assessment_round(self, inv: Invoice, version: int, now: int) -> dict:
         """One consensus judgment over one frozen evidence version.
@@ -976,6 +1288,15 @@ class Factora(gl.Contract):
                              and int(inv.buyer_dispute_withdrawn_epoch) != 0)
         dispute_text = _defang(inv.buyer_dispute_text)
         committed_ids = [it["id"] for it in items]
+        credit_open = self._credit_open(inv)
+        credit_atto = int(inv.credit_claim_atto) if credit_open else 0
+        credit_epoch = int(inv.credit_claim_epoch) if credit_open else 0
+        credit_text = _defang(inv.credit_claim_text) if credit_open else ""
+        credit_withdrawn = (int(inv.credit_claim_epoch) != 0
+                            and int(inv.credit_claim_withdrawn_epoch) != 0)
+        claims = {}
+        for side, stored in (("seller", inv.seller_entity), ("buyer", inv.buyer_entity)):
+            claims[side] = json.loads(stored) if stored else None
 
         def judge() -> dict:
             rows = []
@@ -1007,6 +1328,25 @@ class Factora(gl.Contract):
                     "digest": _sha256_hex(excerpt),
                 })
 
+            registry_rows = []
+            for side in ("seller", "buyer"):
+                claim = claims[side]
+                if claim is None:
+                    continue
+                url = REGISTRIES[claim["registry"]]["url"].replace("{id}", claim["entity_id"])
+                body = ""
+                try:
+                    body = str(gl.nondet.web.render(url, mode="text") or "")
+                except Exception:
+                    body = ""
+                text, active, current = _stable_gleif(body, claim["entity_id"])
+                registry_rows.append({
+                    "side": side, "registry": claim["registry"],
+                    "entity_id": claim["entity_id"],
+                    "reachable": bool(text), "active": active, "current": current,
+                    "excerpt": text, "digest": _sha256_hex(text),
+                })
+
             blocks = []
             for r in rows:
                 content = r["excerpt"] if r["reachable"] else "[unreachable or empty at judgment time]"
@@ -1029,7 +1369,66 @@ class Factora(gl.Contract):
                 chain_facts.append(
                     "- BUYER DISPUTE OPEN — the buyer's own wallet filed this "
                     "on-chain, verbatim inside the fence below")
+            if credit_open:
+                chain_facts.append(
+                    f"- BUYER CREDIT CLAIM OPEN — the buyer's own wallet contests "
+                    f"{credit_atto} atto-GEN of this invoice as not owed, verbatim "
+                    "inside the fence below")
+            for rr in registry_rows:
+                who = rr["side"].upper()
+                if not rr["reachable"]:
+                    chain_facts.append(
+                        f"- {who} ENTITY: its wallet attested identifier {rr['entity_id']}, "
+                        "but the register's record could not be retrieved at judgment time")
+                else:
+                    chain_facts.append(
+                        f"- {who} ENTITY: its wallet attested identifier {rr['entity_id']}; "
+                        "the register's own record, fetched by the contract, is fenced below")
             chain_block = "\n".join(chain_facts)
+            registry_block = ""
+            for rr in registry_rows:
+                if rr["reachable"]:
+                    registry_block += (
+                        f"\n<<<REGISTRY RECORD | {rr['side'].upper()} | "
+                        f"{REGISTRIES[rr['registry']]['label']} | fetched by the "
+                        "contract from a fixed origin no party chose>>>\n"
+                        f"{rr['excerpt']}\n<<<END REGISTRY RECORD>>>\n")
+            credit_block = ""
+            if credit_open:
+                credit_block = (
+                    "\n<<<BUYER CREDIT CLAIM | filed on-chain by the buyer wallet | "
+                    "BUYER-DECLARED: the claim under test, not evidence for itself>>>\n"
+                    f"{credit_text}\n<<<END BUYER CREDIT CLAIM>>>\n")
+            extra_questions = ""
+            extra_schema = ""
+            for rr in registry_rows:
+                if rr["reachable"] and rr["active"] and rr["current"]:
+                    side = rr["side"]
+                    extra_questions += (
+                        f"\n- {side}_entity_match — read the {side.upper()} REGISTRY RECORD. "
+                        f"MATCH only when the committed documents name the {side} and that "
+                        "name denotes the same legal entity as the register's legal name or "
+                        "one of its other names (ignore case, punctuation and legal-form "
+                        "abbreviations such as Ltd and Limited). MISMATCH when the documents "
+                        f"name a different entity as the {side}. UNCLEAR when the documents "
+                        f"do not name the {side} well enough to tell.")
+                    extra_schema += f'\n  "{side}_entity_match": "MATCH" | "MISMATCH" | "UNCLEAR",'
+            if credit_open:
+                extra_questions += (
+                    f"\n- credit_claim_finding — does the record show that {credit_atto} "
+                    "atto-GEN of this invoice is not owed? SUPPORTED only when a committed "
+                    "or contract-fetched item, which you name in credit_corroboration, itself "
+                    "shows the shortfall (a delivery receipt for fewer units, a credit note, "
+                    "a price correction). NOT_SUPPORTED only when an item you name in "
+                    "credit_corroboration affirmatively contradicts the claim (for example a "
+                    "receipt signed for the full quantity). Otherwise INSUFFICIENT. The "
+                    "buyer's statement is the claim under test and cannot corroborate itself.")
+                extra_schema += (
+                    '\n  "credit_claim_finding": "SUPPORTED" | "NOT_SUPPORTED" | "INSUFFICIENT",'
+                    '\n  "credit_corroboration": [<evidence ids>],')
+            if extra_questions:
+                extra_questions = ("\n7. additional findings this record calls for:"
+                                   + extra_questions + "\n")
             dispute_block = ""
             if dispute_open:
                 dispute_block = (
@@ -1045,7 +1444,7 @@ THE RECEIVABLE UNDER ASSESSMENT:
 
 FACTS THE CONTRACT VERIFIED ON-CHAIN (these are not claims):
 {chain_block}
-{dispute_block}
+{dispute_block}{credit_block}{registry_block}
 THE COMMITTED EVIDENCE — each item names its own provenance in its fence header. A SELLER-DECLARED item is hashed and frozen, so it cannot have been altered since commitment, but its content is the seller's claim about the world, not a verified fact. A CONTRACT-FETCHED page was retrieved by the contract itself during this judgment. Weigh each item as what its provenance makes it:
 {evidence_text}
 
@@ -1053,10 +1452,10 @@ DECIDE, from this record alone:
 1. seller_finding — is the seller's identity and standing SUPPORTED, NOT_SUPPORTED, or INSUFFICIENT on this record?
 2. buyer_finding — same question for the buyer. The on-chain acknowledgement, where present, is strong contract-verified support.
 3. transaction_finding — does the record support that the underlying obligation is real: order, delivery or performance, amounts and dates coherent?
-4. conflicts — material contradictions, as codes from exactly this list: {", ".join(CONFLICT_CODES)}. An open buyer dispute is always BUYER_DISPUTE_OPEN.
+4. conflicts — material contradictions in the EVIDENCE, as codes from exactly this list: {", ".join(c for c in CONFLICT_CODES if c not in CODE_OWNED_CONFLICTS)}. A buyer dispute, a buyer credit claim and a register record are chain facts the contract accounts for itself: do not encode them as conflicts.
 5. examined / excluded — every committed item lands in exactly one list. Exclude only with a code from: {", ".join(EXCLUSION_CODES)}.
 6. score — 0-100, your composite reading of financeability.
-
+{extra_questions}
 You do not return a decision or a risk class. Deterministic contract code composes both from your findings and conflicts, identically for every validator — your job is the evidence, not the terms.
 
 GUARDRAILS:
@@ -1070,7 +1469,7 @@ Respond ONLY with JSON:
 {{"score": <0-100>,
   "seller_finding": "SUPPORTED" | "NOT_SUPPORTED" | "INSUFFICIENT",
   "buyer_finding": "SUPPORTED" | "NOT_SUPPORTED" | "INSUFFICIENT",
-  "transaction_finding": "SUPPORTED" | "NOT_SUPPORTED" | "INSUFFICIENT",
+  "transaction_finding": "SUPPORTED" | "NOT_SUPPORTED" | "INSUFFICIENT",{extra_schema}
   "conflicts": [<codes>],
   "examined": [<evidence ids>],
   "excluded": [{{"id": <evidence id>, "code": <exclusion code>}}],
@@ -1133,7 +1532,49 @@ Respond ONLY with JSON:
                 conflicts = []
             conflicts = sorted(set(
                 c for c in (str(x).strip().upper() for x in conflicts)
-                if c in CONFLICT_CODES))
+                if c in CONFLICT_CODES and c not in CODE_OWNED_CONFLICTS))
+
+            # THE IDENTITY LADDER. The panel answers one narrow question per
+            # attested side; the class is composed in code.
+            identity = {}
+            for side in ("seller", "buyer"):
+                rr = next((r for r in registry_rows if r["side"] == side), None)
+                match = ""
+                if rr is not None and rr["reachable"] and rr["active"] and rr["current"]:
+                    match = str(raw.get(f"{side}_entity_match", "")).strip().upper()
+                    if match not in ENTITY_MATCHES:
+                        raise gl.vm.UserError(
+                            f"{ERROR_LLM} {side}_entity_match outside the enum: {match}")
+                identity[side] = _entity_class(
+                    rr is not None, bool(rr and rr["reachable"]),
+                    bool(rr and rr["active"]), bool(rr and rr["current"]), match)
+            entity_contradicted = "CONTRADICTED" in identity.values()
+            if entity_contradicted:
+                conflicts = sorted(set(conflicts + ["ENTITY_CONTRADICTED"]))
+
+            # THE CLAIM FLOOR, and its mirror. A finding that moves the
+            # seller's money (SUPPORTED) or marks the buyer as contesting
+            # against the evidence (NOT_SUPPORTED) needs an examined item
+            # behind it. Without one, either finding falls to INSUFFICIENT:
+            # the buyer's word cannot cut the debt, and the seller's silence
+            # cannot convict the buyer.
+            credit_finding = "NONE"
+            credit_corroboration = []
+            if credit_open:
+                credit_finding = str(raw.get("credit_claim_finding", "")).strip().upper()
+                if credit_finding not in FINDINGS:
+                    raise gl.vm.UserError(
+                        f"{ERROR_LLM} credit_claim_finding outside the enum: {credit_finding}")
+                named = raw.get("credit_corroboration", [])
+                if not isinstance(named, list):
+                    named = []
+                credit_corroboration = sorted(set(
+                    i for i in (str(x).strip() for x in named) if i in ex_ids))
+                if credit_finding != "INSUFFICIENT" and not credit_corroboration:
+                    print(f"[DOWNGRADE] credit claim {credit_finding} without an examined item behind it")
+                    credit_finding = "INSUFFICIENT"
+                if credit_finding == "NOT_SUPPORTED":
+                    conflicts = sorted(set(conflicts + ["CREDIT_CLAIM_CONTRADICTED"]))
 
             # An open buyer dispute is a chain fact, not a model opinion:
             # it enters the conflict set deterministically.
@@ -1141,7 +1582,8 @@ Respond ONLY with JSON:
                 conflicts = sorted(set(conflicts + ["BUYER_DISPUTE_OPEN"]))
 
             decision, risk, hard = _derive_verdict(
-                findings, conflicts, dispute_open, len(ex_ids))
+                findings, conflicts, dispute_open, len(ex_ids),
+                entity_contradicted)
 
             return {
                 "decision": decision, "risk": risk, "score": score,
@@ -1152,6 +1594,10 @@ Respond ONLY with JSON:
                 "hard_conflicts": hard,
                 "reason": str(raw.get("reason", "")).strip()[:MAX_REASON_CHARS],
                 "rows": rows,
+                "identity": identity,
+                "registry_rows": registry_rows,
+                "credit_claim_finding": credit_finding,
+                "credit_corroboration": credit_corroboration,
             }
 
         def validator_fn(leaders_res) -> bool:
@@ -1208,6 +1654,16 @@ Respond ONLY with JSON:
                 return False
             if mine["examined"] != theirs.get("examined"):
                 return False
+            # Identity classes choose the advance table and can hold the
+            # record at review; the claim finding decides what the buyer
+            # owes. Both steer money, so both are agreed exactly.
+            if mine["identity"] != theirs.get("identity"):
+                print(f"[DISAGREE] identity: {mine['identity']} vs {theirs.get('identity')}")
+                return False
+            if mine["credit_claim_finding"] != theirs.get("credit_claim_finding"):
+                print(f"[DISAGREE] credit claim: {mine['credit_claim_finding']} "
+                      f"vs {theirs.get('credit_claim_finding')}")
+                return False
             my_bucket = mine["score"] // 10
             their_bucket = _as_int(theirs.get("score"), -1) // 10
             if abs(my_bucket - their_bucket) > 1:
@@ -1239,6 +1695,34 @@ Respond ONLY with JSON:
                     # Committed bytes are on-chain: for declared documents
                     # there is exactly one honest excerpt.
                     return False
+                if me["type"] == "external_url" and me["reachable"]:
+                    # FRESH-SOURCE PROVENANCE. A fetched page enters the
+                    # record here and every later reader relies on it, so a
+                    # digest over the leader's own bytes is not enough: it
+                    # certifies nothing about the page. Every byte the
+                    # leader stores must be text this node fetched itself,
+                    # which means a prefix of, or equal to, this node's own
+                    # excerpt. One-way on purpose: a longer leader excerpt
+                    # could carry an honest page plus a fabricated ending.
+                    if not excerpt or not me["excerpt"].startswith(excerpt):
+                        return False
+
+            # Registry records are the identity evidence. Both nodes keep the
+            # same canonical subset of the same record, so the bytes must be
+            # EQUAL, not merely compatible.
+            their_reg = theirs.get("registry_rows")
+            if not isinstance(their_reg, list) or len(their_reg) != len(mine["registry_rows"]):
+                return False
+            for me, them in zip(mine["registry_rows"], their_reg):
+                if not isinstance(them, dict):
+                    return False
+                for key in ("side", "registry", "entity_id", "reachable", "active", "current"):
+                    if me[key] != them.get(key):
+                        return False
+                if _sha256_hex(str(them.get("excerpt", ""))) != them.get("digest"):
+                    return False
+                if them.get("excerpt") != me["excerpt"]:
+                    return False
             return True
 
         out = gl.vm.run_nondet_unsafe(judge, validator_fn)
@@ -1248,8 +1732,10 @@ Respond ONLY with JSON:
         acked = buyer_acked
         advisory_adv = 0
         advisory_fee = 0
+        tier, table = _advance_table(acked, out["identity"])
+        base, due = _credit_terms(int(amount_atto), credit_open, credit_atto,
+                                  out["credit_claim_finding"])
         if out["decision"] == "FINANCEABLE":
-            table = ADVANCE_BPS if acked else ADVANCE_BPS_NO_ACK
             advisory_adv = table.get(out["risk"], 0)
             advisory_fee = FEE_BPS.get(out["risk"], 0)
 
@@ -1262,6 +1748,17 @@ Respond ONLY with JSON:
             "buyer_acknowledged": acked,
             "buyer_dispute_open": dispute_open,
             "buyer_dispute_withdrawn": dispute_withdrawn,
+            "identity": out["identity"],
+            "identity_tier": tier if out["decision"] == "FINANCEABLE" else "",
+            "registry_rows": out["registry_rows"],
+            "credit_claim_open": credit_open,
+            "credit_claim_atto": str(credit_atto),
+            "credit_claim_epoch": credit_epoch,
+            "credit_claim_withdrawn": credit_withdrawn,
+            "credit_claim_finding": out["credit_claim_finding"],
+            "credit_corroboration": out["credit_corroboration"],
+            "base_atto": str(base),
+            "due_atto": str(due),
             "decision": out["decision"],
             "risk": out["risk"],
             "score": out["score"],
@@ -1516,11 +2013,15 @@ Respond ONLY with JSON:
             raise gl.vm.UserError(
                 f"{ERROR_EXPECTED} the buyer's dispute stands between this "
                 "verdict and funding — a reassessment must read it first")
+        if self._objection_unread(inv, int(inv.assessed_version)):
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} the buyer's credit claim stands between "
+                "this verdict and funding; a reassessment must read it first")
         now = self._require_clock()
         if now > int(inv.funding_deadline_epoch):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} the funding deadline has passed")
 
-        advance = int(inv.amount_atto) * int(inv.advance_rate_bps) // 10_000
+        advance = self._base(inv) * int(inv.advance_rate_bps) // 10_000
         if advance <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} no advance is authorized")
         if self._value() != advance:
@@ -1548,10 +2049,10 @@ Respond ONLY with JSON:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} only the named buyer wallet repays")
         if inv.status not in ("FUNDED", "DEFAULTED"):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} nothing to repay in {inv.status}")
-        amount = int(inv.amount_atto)
+        amount = self._due(inv)
         if self._value() != amount:
             raise gl.vm.UserError(
-                f"{ERROR_EXPECTED} repayment is the invoice amount exactly: {amount} atto")
+                f"{ERROR_EXPECTED} repayment is the amount owed exactly: {amount} atto")
         inv.repaid_epoch = u256(self._require_clock())
         inv.repaid_atto = u256(amount)
         inv.status = "REPAID"
@@ -1572,7 +2073,7 @@ Respond ONLY with JSON:
 
         amount = int(inv.repaid_atto)
         advance = int(inv.advance_atto)
-        fee = int(inv.amount_atto) * int(inv.fee_bps) // 10_000
+        fee = self._base(inv) * int(inv.fee_bps) // 10_000
         provider_total = advance + fee
         seller_total = amount - provider_total
         if seller_total < 0:
@@ -1670,7 +2171,16 @@ Respond ONLY with JSON:
             "score": int(inv.score),
             "advance_rate_bps": int(inv.advance_rate_bps),
             "fee_bps": int(inv.fee_bps),
-            "advance_atto": str(int(inv.amount_atto) * int(inv.advance_rate_bps) // 10_000),
+            "advance_atto": str(self._base(inv) * int(inv.advance_rate_bps) // 10_000),
+            "base_atto": str(self._base(inv)),
+            "due_atto": str(self._due(inv)),
+            "identity_tier": inv.identity_tier,
+            "seller_entity": json.loads(inv.seller_entity) if inv.seller_entity else None,
+            "buyer_entity": json.loads(inv.buyer_entity) if inv.buyer_entity else None,
+            "credit_claim_atto": str(int(inv.credit_claim_atto)),
+            "credit_claim_text": inv.credit_claim_text,
+            "credit_claim_epoch": int(inv.credit_claim_epoch),
+            "credit_claim_withdrawn_epoch": int(inv.credit_claim_withdrawn_epoch),
             "provider": inv.provider,
             "funded_epoch": int(inv.funded_epoch),
             "funded_advance_atto": str(int(inv.advance_atto)),
@@ -1749,7 +2259,7 @@ Respond ONLY with JSON:
         a limit will eventually guess wrong, and the user pays for that in a
         reverted transaction."""
         return json.dumps({
-            "version": "0.1.2",
+            "version": "0.2.0",
             "min_invoice_atto": str(MIN_INVOICE_ATTO),
             "max_invoice_atto": str(MAX_INVOICE_ATTO),
             "reference_chars": [MIN_REFERENCE_CHARS, MAX_REFERENCE_CHARS],
@@ -1765,7 +2275,10 @@ Respond ONLY with JSON:
             "reassess_stale_seconds": REASSESS_STALE_SECONDS,
             "grace_seconds": GRACE_SECONDS,
             "advance_bps": ADVANCE_BPS,
+            "advance_bps_keys_only": ADVANCE_BPS_KEYS_ONLY,
             "advance_bps_no_ack": ADVANCE_BPS_NO_ACK,
+            "registries": {k: v["label"] for k, v in REGISTRIES.items()},
+            "credit_text_chars": [10, MAX_CREDIT_TEXT_CHARS],
             "fee_bps": FEE_BPS,
             "advance_bounds_bps": [MIN_ADVANCE_BPS, MAX_ADVANCE_BPS],
             "fee_bounds_bps": [MIN_FEE_BPS, MAX_FEE_BPS],

@@ -354,8 +354,13 @@ def test_a_validator_that_cannot_reach_a_page_the_leader_reached_disagrees(modul
 
     module.gl.nondet.web.render = flaky_render
     panel_says(panel_answer())
-    with pytest.raises(err(module), match="did not agree"):
-        _request(module, c, iid)
+    try:
+        with pytest.raises(err(module), match="did not agree"):
+            _request(module, c, iid)
+    finally:
+        # the stub is shared across tests: a patch left behind here made
+        # every later fetch of this page go dark
+        module.gl.nondet.web.render = real_render
 
 
 def test_a_stuttering_validator_model_disagrees_rather_than_throwing(module, c):

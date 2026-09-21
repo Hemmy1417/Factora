@@ -23,6 +23,25 @@ score, and two sentences of reasoning.
 **It does not return a decision. It does not return a risk class. It never
 sees a basis point.**
 
+Two further findings are asked only when the record calls for them
+(v0.2.0), and each is phrased as the observable fact required, not as an
+impression:
+
+- `seller_entity_match` / `buyer_entity_match`, asked only for a side whose
+  wallet attested an entity AND whose register record this node fetched and
+  found active and current. `MATCH` only when the committed documents name
+  that party and the name denotes the same legal entity as the register's
+  legal name or one of its other names; `MISMATCH` when the documents name a
+  different entity; `UNCLEAR` when they do not name the party well enough to
+  tell. The identity class (`NONE`, `DECLARED`, `REGISTERED`,
+  `CONTRADICTED`) is then composed in code by `_entity_class`.
+- `credit_claim_finding` and `credit_corroboration`, asked only while a
+  buyer's credit claim is open. `SUPPORTED` only when an item the panel
+  names itself shows the shortfall; `NOT_SUPPORTED` only when a named item
+  affirmatively contradicts the claim; otherwise `INSUFFICIENT`. Named items
+  that were not examined are dropped in code, and a finding left with none
+  behind it falls to `INSUFFICIENT`.
+
 ## The derivation
 
 `_derive_verdict` — pure code, executed identically inside every
@@ -61,6 +80,10 @@ judges independently, derives its own decision and risk, then compares:
 | examined id set | exact | examination accountability is part of the verdict |
 | score | bucket of ten, within one | recorded as the leader's figure, bucket-agreed |
 | dossier rows | structural | ids in order, reachability claims, each digest re-derived from the bytes that row stores; declared-document excerpts must equal the committed bytes |
+| fetched-page excerpts | the leader's is a prefix of, or equal to, this node's | every stored byte is text a validator fetched; a longer leader excerpt could carry a fabricated ending |
+| register records | exact bytes | both nodes keep the same canonical subset of the record and drop its volatile envelope, so honest nodes store identical text |
+| identity classes | exact | they choose the advance table and can hold the record at review |
+| credit claim finding | exact | it decides what the buyer owes |
 
 A validator whose own rerun throws **disagrees** instead of throwing —
 a broken model rotates the round rather than discarding it. Leader errors
@@ -69,10 +92,15 @@ noise agrees with transient noise, model misbehaviour always disagrees.
 
 ## Terms
 
-`_promote()` prices the promoted verdict against a code table on
-(risk, buyer-acknowledged): LOW 85% / MEDIUM 70% advance with a 3% / 5%
-fee — capped at 60% / 50% when the buyer never countersigned, because a
-declared-only record is priced as one. The dossier carries an advisory copy
+`_promote()` prices the promoted verdict against a code table on risk and
+an identity tier chosen by `_advance_table`: LOW 85% / MEDIUM 70% when the
+buyer countersigned AND both parties are `REGISTERED`; 75% / 60% when the
+buyer countersigned and identity rests on wallet keys; 60% / 50% when the
+buyer never countersigned, because a declared-only record is priced as one.
+The fee is 3% / 5%. Advance and fee are computed on the financed base from
+`_credit_terms`: the invoice, less any part the buyer contested in the
+judged record. What the buyer owes is that base when the claim was found
+`SUPPORTED`, and the full invoice otherwise. The dossier carries an advisory copy
 for display; promotion recomputes and never trusts it.
 
 ## Injection posture

@@ -43,6 +43,8 @@ EXPECTED_WRITES = {
     "claim", "claim_advance", "commit_evidence", "create_invoice",
     "execute_settlement", "file_buyer_dispute", "finalize_assessment",
     "withdraw_buyer_dispute",
+    # v0.2.0
+    "attest_entity", "file_credit_claim", "withdraw_credit_claim",
     "fund", "mark_defaulted", "mark_expired", "prepare_settlement",
     "reassess", "repay", "request_assessment",
 }
