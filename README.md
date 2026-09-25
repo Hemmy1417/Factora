@@ -208,19 +208,76 @@ The model recommends nothing in basis points and does not even name the decision
 
 ### v0.3.0: default adjudication, in two sittings
 
-A default cannot be hurried: the contract marks one only a full day after the
-due date. So the live proof has two sittings and this section says which one
-has happened. **Sitting one is done**: on the live v0.3.0 deployment two
-receivables were registered, judged, promoted and funded with real GEN, their
-due date under ninety minutes away, and the contract refused both an early
-default and an early filing on-chain (`web/live-v030.sitting1.stdout`).
-**Sitting two has not happened yet.** It marks both defaulted and runs each
-finding where it must fire and where it must not: a countersigned buyer found
-in default, who then repays and clears the finding; and a buyer whose own
-remittance advice is the only thing behind its story, on which the contract
-names nobody until the provider files what the buyer could not mint. Until it
-runs, the ruling path is proven by the direct suite and the sweep, not live,
-and this paragraph will say so. Reproduce with `node web/scripts/live-v030.mjs`.
+A default cannot be hurried: the contract marks one only a full day after
+the due date. So the live proof ran in two sittings on the v0.3.0 deployment
+with real GEN. Sitting one (21 September) registered, judged, promoted and
+funded two receivables with their due date under ninety minutes away, and
+the contract refused both an early default and an early filing on-chain.
+Sitting two (25 September) marked both defaulted and ran each finding where
+it must fire and where it must not.
+
+**X.** The seller filed its collection notices against a buyer whose wallet
+had countersigned the debt. The panel found the buyer in default, the
+contract let it stand on the countersignature, a stranger's filing and an
+early finalization were refused, and after the window the buyer's wallet
+carried the liability. The buyer then repaid: the liability left the wallet
+and the invoice settled normally.
+
+**Y, the control.** The buyer filed its own remittance advice claiming it
+had paid the seller directly, with nothing else behind it. The panel
+believed it and said the seller owed recourse. The contract recorded
+UNRESOLVED and named nobody: a party is not found liable on its opponent's
+paper, and both the panel's word and the recorded finding are on the
+record for anyone to compare. Asking again with nothing new filed was
+refused. Then the provider filed a bank confirmation, which the buyer could
+not have written, and the same finding stood. After the window the seller's
+wallet carried the liability; recourse was refused before the window
+closed, from the buyer, and one atto short; then the seller paid the
+advance plus the fee exactly, the provider was whole, the instrument
+closed, the liability left the wallet, and custody ended at zero.
+
+Reproduce with `node web/scripts/live-v030.mjs`. Transcripts:
+`web/live-v030.sitting1.stdout` and `web/live-v030.sitting2.stdout`.
+
+```text
+FACTORA v0.3.0 LIVE RUN  ·  0xF9bF8e95d61e90b6077A40c344121890ED2D62e3  ·  RESUME=1790011265
+  ok    the deployed contract reports version 0.3.0  (0.3.0)
+Sitting one. Two receivables, judged, promoted and funded
+  ok    X: registered as fac-000001  (INV-V030-X-1790011265)
+  ok    Y: registered as fac-000002  (INV-V030-Y-1790011265)
+  ok    X: funded  (FUNDED · advance 0.0600 GEN)
+  ok    Y: funded  (FUNDED · advance 0.0600 GEN)
+Sitting two. The day of grace has passed and nobody paid
+X. The seller's collection notices, against a buyer who countersigned
+  ok    refused: X: a stranger filing on somebody else's default  (receipt ERROR)
+  ..    X: panel said BUYER_DEFAULT; the contract records BUYER_DEFAULT; behind it: DF-1-1,EV-003
+  ok    X: the buyer is found in default on a debt its own wallet countersigned  (BUYER_DEFAULT)
+  ok    X: inside its window the ruling names nobody yet
+  ok    refused: X: finalizing the ruling inside its window  (receipt ERROR)
+  ..    X: the ruling's window closes in 911s
+  ok    X: after the window the buyer's wallet carries the liability  (liabilities on the wallet: 1)
+  ok    X: payment answered the default and the liability left the wallet  (liabilities on the wallet: 0)
+Y. CONTROL: the buyer's own remittance advice is the only thing behind its story
+  ..    Y: panel said SELLER_RECOURSE; the contract records UNRESOLVED; behind it: DF-1-1
+  ok    Y: the seller was NOT named on the buyer's own paper  (panel said SELLER_RECOURSE; recorded UNRESOLVED)
+  ok    refused: Y: asking again with nothing new filed  (receipt ERROR)
+Y. The provider files what the buyer could not mint
+  ok    Y: the new filing dropped the ruling that had not read it
+  ..    Y: panel said SELLER_RECOURSE; the contract records SELLER_RECOURSE; behind it: DF-1-1,DF-2-1
+  ok    Y: recourse against the seller, resting on the provider's evidence  (SELLER_RECOURSE · DF-1-1,DF-2-1)
+  ok    refused: Y: paying recourse before the ruling has taken effect  (receipt ERROR)
+  ..    Y: the ruling's window closes in 900s
+  ok    Y: after the window the seller's wallet carries the liability  (liabilities on the wallet: 1)
+  ok    refused: Y: the buyer paying the seller's recourse  (receipt ERROR)
+  ok    refused: Y: recourse one atto short  (receipt ERROR)
+  ok    Y: the seller paid the advance plus the fee  (0.0650 GEN)
+  ok    Y: the provider is whole, the instrument is closed, the liability has left the wallet
+  ok    refused: Y: the buyer repaying an instrument that is closed  (receipt ERROR)
+Claims
+  ok    PROVIDER claimed  (0.1300 GEN)
+  ok    custody is zero: every atto left through claim()  ({"invoices":2,"funded":2,"settled":1,"escrow_atto":"0"})
+EVERY STEP PASSED
+```
 
 ### v0.2.0: each new finding, where it must fire and where it must not
 
